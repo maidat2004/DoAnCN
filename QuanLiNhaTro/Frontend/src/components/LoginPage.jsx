@@ -35,11 +35,11 @@ export default function LoginPage() {
       if (isLogin) {
         // Đăng nhập
         const session = await login({ email: formData.email, password: formData.password });
-        // Điều hướng sau đăng nhập: admin -> /admin, user -> trang chủ /
+        // Điều hướng sau đăng nhập: admin -> /admin, user -> /user
         if (session?.role === 'admin') {
           navigate('/admin', { replace: true });
         } else {
-          navigate('/', { replace: true });
+          navigate('/user', { replace: true });
         }
       } else {
         // Đăng ký

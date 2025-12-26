@@ -78,7 +78,12 @@ class AuthService {
     
     if (userStr && token) {
       try {
-        return JSON.parse(userStr);
+        const user = JSON.parse(userStr);
+        // Ensure user has _id property (for backward compatibility)
+        if (user.id && !user._id) {
+          user._id = user.id;
+        }
+        return user;
       } catch {
         return null;
       }

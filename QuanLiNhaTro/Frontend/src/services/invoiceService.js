@@ -54,6 +54,18 @@ class InvoiceService {
   }
 
   /**
+   * Tạo draft hóa đơn hàng loạt cho tất cả người thuê
+   */
+  async createBulkDraftInvoices() {
+    try {
+      const response = await api.post('/invoices/bulk-draft');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
    * Cập nhật hóa đơn
    */
   async updateInvoice(id, data) {
@@ -71,6 +83,18 @@ class InvoiceService {
   async payInvoice(id, paymentMethod = 'cash') {
     try {
       const response = await api.put(`/invoices/${id}/pay`, { paymentMethod });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Gửi hóa đơn qua email
+   */
+  async sendInvoice(id) {
+    try {
+      const response = await api.post(`/invoices/${id}/send`);
       return response.data;
     } catch (error) {
       throw error;

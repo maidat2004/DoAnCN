@@ -1,0 +1,162 @@
+@startuml Quản Lý Nhà Trọ - ERD
+
+!define PRIMARY_KEY(x) <b><color:#b8861b><&key></color> x</b>
+!define FOREIGN_KEY(x) <color:#aaaaaa><&key></color> x
+!define COLUMN(x) <color:#efefef><&media-record></color> x
+!define TABLE(x) entity x << (T, #FFAAAA) >>
+
+' Entities
+entity "User" as user {
+  PRIMARY_KEY(_id): ObjectId
+  --
+  COLUMN(name): String [required]
+  COLUMN(email): String [unique, required]
+  COLUMN(password): String [required]
+  COLUMN(role): Enum [admin, user]
+  COLUMN(phone): String
+  COLUMN(address): String
+  COLUMN(avatar): String
+  COLUMN(isActive): Boolean
+  COLUMN(createdAt): Date
+  COLUMN(updatedAt): Date
+}
+
+entity "Room" as room {
+  PRIMARY_KEY(_id): ObjectId
+  --
+  COLUMN(roomNumber): String [unique, required]
+  COLUMN(floor): Number [required]
+  COLUMN(area): Number [required]
+  COLUMN(price): Number [required]
+  COLUMN(capacity): Number [default: 1]
+  COLUMN(status): Enum [available, occupied, maintenance]
+  COLUMN(description): String
+  COLUMN(images): Array<String>
+  COLUMN(amenities): Array<String>
+  COLUMN(createdAt): Date
+  COLUMN(updatedAt): Date
+}
+
+entity "Tenant" as tenant {
+  PRIMARY_KEY(_id): ObjectId
+  --
+  FOREIGN_KEY(user): ObjectId -> User
+  COLUMN(fullName): String [required]
+  COLUMN(idCard): String [unique, required]
+  COLUMN(phone): String [required]
+  COLUMN(email): String [required]
+  COLUMN(dateOfBirth): Date
+  COLUMN(hometown): String
+  COLUMN(permanentAddress): String
+  COLUMN(currentAddress): String
+  COLUMN(occupation): String
+  COLUMN(workplace): String
+  COLUMN(emergencyContact): Object
+  COLUMN(moveInDate): Date
+  COLUMN(moveOutDate): Date
+  COLUMN(status): Enum [active, inactive]
+  COLUMN(createdAt): Date
+  COLUMN(updatedAt): Date
+}
+
+entity "Contract" as contract {
+  PRIMARY_KEY(_id): ObjectId
+  --
+  COLUMN(contractNumber): String [unique, required]
+  FOREIGN_KEY(room): ObjectId -> Room
+  FOREIGN_KEY(tenant): ObjectId -> Tenant
+  COLUMN(startDate): Date [required]
+  COLUMN(endDate): Date [required]
+  COLUMN(monthlyRent): Number [required]
+  COLUMN(deposit): Number [required]
+  COLUMN(paymentDate): Number [default: 5]
+  COLUMN(status): Enum [active, expired, terminated]
+  COLUMN(terms): String
+  COLUMN(notes): String
+  COLUMN(files): Array<String>
+  COLUMN(createdAt): Date
+  COLUMN(updatedAt): Date
+}
+
+entity "Invoice" as invoice {
+  PRIMARY_KEY(_id): ObjectId
+  --
+  COLUMN(invoiceNumber): String [unique, required]
+  FOREIGN_KEY(room): ObjectId -> Room
+  FOREIGN_KEY(tenant): ObjectId -> Tenant
+  FOREIGN_KEY(contract): ObjectId -> Contract
+  COLUMN(month): Number [1-12, required]
+  COLUMN(year): Number [required]
+  COLUMN(roomRent): Number [required]
+  COLUMN(services): Array<ServiceUsage>
+  COLUMN(totalAmount): Number [required]
+  COLUMN(paid): Number [default: 0]
+  COLUMN(status): Enum [pending, paid, overdue]
+  COLUMN(dueDate): Date [required]
+  COLUMN(paidDate): Date
+  COLUMN(paymentMethod): String
+  COLUMN(notes): String
+  COLUMN(createdAt): Date
+  COLUMN(updatedAt): Date
+}
+
+entity "Service" as service {
+  PRIMARY_KEY(_id): ObjectId
+  --
+  COLUMN(name): String [required]
+  COLUMN(type): Enum [electricity, water, internet, parking, cleaning, other]
+  COLUMN(unitPrice): Number [required]
+  COLUMN(unit): String [required]
+  COLUMN(description): String
+  COLUMN(isActive): Boolean [default: true]
+  COLUMN(createdAt): Date
+  COLUMN(updatedAt): Date
+}
+
+entity "Request" as request {
+  PRIMARY_KEY(_id): ObjectId
+  --
+  FOREIGN_KEY(tenant): ObjectId -> Tenant
+  FOREIGN_KEY(room): ObjectId -> Room
+  COLUMN(type): Enum [repair, complaint, service, other]
+  COLUMN(title): String [required]
+  COLUMN(description): String [required]
+  COLUMN(priority): Enum [low, medium, high, urgent]
+  COLUMN(status): Enum [pending, in-progress, resolved, rejected]
+  COLUMN(images): Array<String>
+  COLUMN(response): String
+  COLUMN(resolvedAt): Date
+  COLUMN(createdAt): Date
+  COLUMN(updatedAt): Date
+}
+
+entity "UpdateRequest" as updateRequest {
+  PRIMARY_KEY(_id): ObjectId
+  --
+  FOREIGN_KEY(tenant): ObjectId -> Tenant
+  COLUMN(type): Enum [personal, contact, address, other]
+  COLUMN(currentData): Object
+  COLUMN(requestedData): Object
+  COLUMN(reason): String [required]
+  COLUMN(status): Enum [pending, approved, rejected]
+  COLUMN(reviewedBy): ObjectId -> User
+  COLUMN(reviewNote): String
+  COLUMN(reviewedAt): Date
+  COLUMN(createdAt): Date
+  COLUMN(updatedAt): Date
+}
+
+' Relationships
+user ||--o{ tenant : "1 User có nhiều Tenant"
+tenant ||--o{ contract : "1 Tenant có nhiều Contract"
+room ||--o{ contract : "1 Room có nhiều Contract"
+tenant ||--o{ invoice : "1 Tenant có nhiều Invoice"
+room ||--o{ invoice : "1 Room có nhiều Invoice"
+contract ||--o{ invoice : "1 Contract có nhiều Invoice"
+service ||--o{ invoice : "1 Service trong nhiều Invoice"
+tenant ||--o{ request : "1 Tenant tạo nhiều Request"
+room ||--o{ request : "1 Room có nhiều Request"
+tenant ||--o{ updateRequest : "1 Tenant tạo nhiều UpdateRequest"
+user ||--o{ updateRequest : "1 Admin review nhiều UpdateRequest"
+
+@enduml

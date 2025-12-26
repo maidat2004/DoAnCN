@@ -15,6 +15,7 @@ export default defineConfig({
     outDir: 'build',
   },
   server: {
+    host: '0.0.0.0', // Listen on all network interfaces
     port: 3000,
     open: true,
     proxy: {

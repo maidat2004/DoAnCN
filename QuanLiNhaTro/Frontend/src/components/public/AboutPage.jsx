@@ -1,280 +1,359 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { roomService } from '../../services';
+import { Search, MapPin, DollarSign, Home, Phone, Mail, Clock } from 'lucide-react';
 
 export default function AboutPage() {
-  const [activeTimeline, setActiveTimeline] = useState(0);
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterArea, setFilterArea] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const stats = [
-    { number: '10+', label: 'Năm kinh nghiệm', icon: '📅', color: 'from-blue-500 to-indigo-600' },
-    { number: '100+', label: 'Phòng cho thuê', icon: '🏠', color: 'from-green-500 to-emerald-600' },
-    { number: '1000+', label: 'Khách hàng hài lòng', icon: '😊', color: 'from-purple-500 to-pink-600' },
-    { number: '98%', label: 'Tỷ lệ hài lòng', icon: '⭐', color: 'from-yellow-500 to-orange-600' },
-  ];
+  useEffect(() => {
+    loadRooms();
+  }, []);
 
-  const team = [
-    { name: 'Nguyễn Văn Minh', role: 'Giám Đốc Điều Hành', avatar: '👨‍💼', desc: '15 năm kinh nghiệm bất động sản', social: { fb: '#', linkedin: '#' } },
-    { name: 'Trần Thị Hương', role: 'Quản Lý Vận Hành', avatar: '👩‍💼', desc: '10 năm quản lý nhà trọ', social: { fb: '#', linkedin: '#' } },
-    { name: 'Lê Văn Thành', role: 'Trưởng Bộ Phận Kỹ Thuật', avatar: '👨‍🔧', desc: 'Chuyên gia bảo trì & sửa chữa', social: { fb: '#', linkedin: '#' } },
-    { name: 'Phạm Thị Mai', role: 'Chăm Sóc Khách Hàng', avatar: '👩‍💻', desc: 'Luôn lắng nghe & hỗ trợ', social: { fb: '#', linkedin: '#' } },
-  ];
+  const loadRooms = async () => {
+    try {
+      const data = await roomService.getRooms();
+      setRooms(data);
+    } catch (error) {
+      console.error('Error loading rooms:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const timeline = [
-    { year: '2015', title: 'Khởi đầu', desc: 'Thành lập với 10 phòng trọ đầu tiên tại Quận 1' },
-    { year: '2017', title: 'Mở rộng', desc: 'Tăng lên 30 phòng, mở thêm chi nhánh Quận 3' },
-    { year: '2019', title: 'Đổi mới', desc: 'Áp dụng công nghệ quản lý, nâng cấp tiện nghi' },
-    { year: '2021', title: 'Phát triển', desc: 'Đạt 70 phòng, ra mắt ứng dụng di động' },
-    { year: '2023', title: 'Hiện tại', desc: 'Hơn 100 phòng, phục vụ 1000+ khách hàng' },
-  ];
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND'
+    }).format(amount);
+  };
 
-  const values = [
-    { icon: '🎯', title: 'Chất Lượng', desc: 'Cam kết cung cấp dịch vụ và cơ sở vật chất chất lượng cao nhất, luôn đặt tiêu chuẩn lên hàng đầu', color: 'from-blue-500 to-indigo-600' },
-    { icon: '🤝', title: 'Uy Tín', desc: 'Xây dựng niềm tin qua hành động, minh bạch trong mọi giao dịch, giữ vững cam kết với khách hàng', color: 'from-green-500 to-teal-600' },
-    { icon: '❤️', title: 'Tận Tâm', desc: 'Lắng nghe và thấu hiểu nhu cầu khách hàng, phục vụ với tất cả sự nhiệt huyết và chân thành', color: 'from-pink-500 to-rose-600' },
-    { icon: '🚀', title: 'Đổi Mới', desc: 'Không ngừng cải tiến, áp dụng công nghệ mới, mang đến trải nghiệm sống hiện đại cho cư dân', color: 'from-purple-500 to-indigo-600' },
-  ];
+  // Filter rooms
+  const filteredRooms = rooms.filter(room => {
+    const matchesSearch = room.roomNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         room.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesArea = filterArea === 'all' || 
+                       (filterArea === 'small' && room.area < 20) ||
+                       (filterArea === 'medium' && room.area >= 20 && room.area < 30) ||
+                       (filterArea === 'large' && room.area >= 30);
+    return matchesSearch && matchesArea;
+  });
 
-  const testimonials = [
-    { name: 'Nguyễn Thành Long', role: 'Người thuê trọ', content: 'Phòng trọ sạch sẽ, tiện nghi đầy đủ, chủ nhà rất thân thiện. Mình ở đây 2 năm rồi rất hài lòng!', avatar: '👨‍🎓', rating: 5 },
-    { name: 'Trần Thị Hạnh', role: 'Nhân viên văn phòng', content: 'Giá cả hợp lý, an ninh tốt, wifi mạnh. Điều mình thích nhất là đội ngũ hỗ trợ rất nhiệt tình.', avatar: '👩‍💼', rating: 5 },
-    { name: 'Lê Minh Tuấn', role: 'Freelancer', content: 'Không gian yên tĩnh, phù hợp để làm việc tại nhà. Các tiện ích như gym, bếp chung rất tiện lợi.', avatar: '👨‍💻', rating: 5 },
-  ];
+  // Get latest rooms (newest 5)
+  const latestRooms = rooms.slice().sort((a, b) => 
+    new Date(b.createdAt) - new Date(a.createdAt)
+  ).slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-r from-blue-600 to-indigo-600 py-24 overflow-hidden">
-        <div className="absolute inset-0 bg-black/20"></div>
-        <div className="absolute inset-0">
-          <div className="absolute top-20 left-20 w-96 h-96 bg-white rounded-full  "></div>
-          <div className="absolute bottom-20 right-20 w-96 h-96 bg-pink-300/20 rounded-full   animation-delay-2000"></div>
-        </div>
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-4xl mx-auto text-center text-white">
-            
-            <h1 className="text-5xl md:text-7xl font-bold mb-6">
-              Nhà Trọ Xanh <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-pink-200"></span>
-            </h1>
-            <p className="text-2xl text-white/90 mb-4 font-medium">Nơi bạn tìm thấy ngôi nhà thứ hai của mình</p>
-            <p className="text-lg text-white/80 max-w-2xl mx-auto">
-              Với hơn 10 năm kinh nghiệm, chúng tôi tự hào là đơn vị cho thuê phòng trọ uy tín hàng đầu, 
-              mang đến không gian sống chất lượng với giá cả phải chăng.
-            </p>
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-16">
+        <div className="container mx-auto px-4">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-center">
+            🏠 Tìm Phòng Trọ Lý Tưởng
+          </h1>
+          <p className="text-xl text-center text-blue-100 mb-8">
+            Khám phá hơn 100+ phòng trọ chất lượng với giá cả phù hợp
+          </p>
+          
+          {/* Search Bar */}
+          <div className="max-w-2xl mx-auto">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm theo số phòng hoặc mô tả..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 rounded-xl text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-300 shadow-lg"
+              />
+            </div>
           </div>
         </div>
-        <div className="absolute bottom-0 left-0 w-full h-2 bg-gray-50"></div>
       </div>
 
-      <div className="container mx-auto px-4 py-16">
-        {/* Stats Section */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 -mt-20 mb-20 relative z-20">
-          {stats.map((stat, index) => (
-            <div key={index} className="bg-white rounded-2xl shadow-xl p-6 text-center hover:shadow-2xl transition-all hover:-translate-y-2">
-              <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${stat.color} flex items-center justify-center text-3xl`}>
-                {stat.icon}
-              </div>
-              <div className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-1">{stat.number}</div>
-              <div className="text-gray-600">{stat.label}</div>
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Left Column - Room List */}
+          <div className="lg:col-span-2">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                Danh Sách Phòng Trọ
+              </h2>
+              <p className="text-gray-600">
+                Hiển thị {filteredRooms.length} phòng
+              </p>
             </div>
-          ))}
-        </div>
 
-        {/* Story Section */}
-        <div className="grid lg:grid-cols-2 gap-16 items-center mb-20">
-          <div>
-            <span className="inline-block px-4 py-2 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium mb-6">
-              📖 Câu chuyện của chúng tôi
-            </span>
-            <h2 className="text-4xl font-bold text-gray-800 mb-6">Hành Trình 10 Năm Xây Dựng Niềm Tin</h2>
-            <div className="space-y-4 text-gray-600 text-lg">
-              <p>
-                <span className="font-bold text-indigo-600">Nhà Trọ Xanh</span> được thành lập vào năm 2015 
-                bởi một nhóm bạn trẻ với ước mơ mang đến những không gian sống chất lượng với giá cả 
-                phải chăng cho người thuê tại thành phố.
-              </p>
-              <p>
-                Qua hơn <span className="font-bold">10 năm</span> phát triển không ngừng, chúng tôi đã xây dựng được hệ thống 
-                hơn <span className="font-bold">100 phòng trọ</span> với đầy đủ tiện nghi hiện đại, phục vụ 
-                hơn <span className="font-bold">1000+ khách hàng</span> và luôn nhận được những phản hồi tích cực.
-              </p>
-              <p>
-                Chúng tôi tin rằng <span className="italic">"mỗi người đều xứng đáng có một nơi ở thoải mái, 
-                an toàn và tiện nghi"</span>. Đó là lý do tại sao chúng tôi không ngừng nỗ lực cải thiện 
-                chất lượng dịch vụ mỗi ngày.
-              </p>
-            </div>
-            <div className="flex gap-4 mt-8">
-              <Link to="/phong-trong" className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-xl hover:shadow-blue-500/50 transition-all transform hover:scale-105">
-                Xem phòng trống
-              </Link>
-              <Link to="/lien-he" className="px-6 py-3 border-2 border-indigo-600 text-indigo-700 rounded-xl font-bold hover:bg-indigo-50 transition-all shadow-md hover:shadow-lg">
-                Liên hệ ngay
-              </Link>
-            </div>
-          </div>
-          <div className="relative">
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-3xl h-96 relative overflow-hidden shadow-2xl">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center text-white">
-                  <span className="text-8xl block mb-4">🏠</span>
-                  <p className="text-2xl font-bold">Nhà Trọ Xanh</p>
-                  <p className="text-white/80">Nơi an cư lý tưởng</p>
-                </div>
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-gray-600">Đang tải...</p>
               </div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-full -translate-y-1/2 translate-x-1/2"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white rounded-full translate-y-1/2 -translate-x-1/2"></div>
-            </div>
-            <div className="absolute -bottom-8 -right-8 bg-white rounded-2xl shadow-xl p-6 max-w-xs">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center text-2xl">✅</div>
-                <div>
-                  <div className="text-3xl font-bold text-gray-800">98%</div>
-                  <div className="text-gray-500">Khách hàng hài lòng</div>
-                </div>
+            ) : filteredRooms.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-md p-12 text-center">
+                <div className="text-6xl mb-4">🔍</div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                  Không tìm thấy phòng nào
+                </h3>
+                <p className="text-gray-600">
+                  Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm
+                </p>
               </div>
-            </div>
-          </div>
-        </div>
+            ) : (
+              <div className="space-y-6">
+                {filteredRooms.map((room) => (
+                  <div key={room._id} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all overflow-hidden group">
+                    <div className="md:flex">
+                      {/* Room Image */}
+                      <div className="md:w-1/3 h-64 md:h-auto bg-gradient-to-br from-blue-500 to-indigo-600 relative overflow-hidden">
+                        {room.images && room.images.length > 0 ? (
+                          <img
+                            src={`http://localhost:5000${room.images[0]}`}
+                            alt={`Phòng ${room.roomNumber}`}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.parentElement.querySelector('.fallback').style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className="fallback hidden items-center justify-center h-full">
+                          <span className="text-white text-6xl">🏠</span>
+                        </div>
+                        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full">
+                          <span className="text-blue-600 font-bold">Phòng {room.roomNumber}</span>
+                        </div>
+                        <div className={`absolute top-4 right-4 px-3 py-1 rounded-full font-semibold text-sm ${
+                          room.status === 'available' ? 'bg-green-500 text-white' :
+                          room.status === 'occupied' ? 'bg-blue-500 text-white' :
+                          'bg-red-500 text-white'
+                        }`}>
+                          {room.status === 'available' ? '✅ Trống' :
+                           room.status === 'occupied' ? '👥 Đã thuê' :
+                           '🔧 Bảo trì'}
+                        </div>
+                      </div>
 
-        {/* Timeline */}
-        <div className="mb-20">
-          <div className="text-center mb-12">
-            <span className="inline-block px-4 py-2 bg-purple-100 text-purple-700 rounded-full text-sm font-medium mb-4">
-              📈 Lịch sử phát triển
-            </span>
-            <h2 className="text-4xl font-bold text-gray-800">Hành Trình Phát Triển</h2>
+                      {/* Room Info */}
+                      <div className="md:w-2/3 p-6">
+                        <div className="flex items-start justify-between mb-3">
+                          <h3 className="text-2xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
+                            Phòng {room.roomNumber} - Tầng {room.floor}
+                          </h3>
+                        </div>
+
+                        {room.description && (
+                          <p className="text-gray-600 mb-4 line-clamp-2">
+                            {room.description}
+                          </p>
+                        )}
+
+                        {/* Room Details Grid */}
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                          <div className="flex items-center gap-2 text-gray-700">
+                            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                              <Home className="w-4 h-4 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Diện tích</p>
+                              <p className="font-semibold">{room.area}m²</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-gray-700">
+                            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                              <span className="text-lg">👥</span>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Sức chứa</p>
+                              <p className="font-semibold">{room.capacity} người</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Price and Action */}
+                        <div className="flex items-center justify-between pt-4 border-t">
+                          <div>
+                            <p className="text-sm text-gray-500">Giá thuê</p>
+                            <p className="text-2xl font-bold text-blue-600">
+                              {formatCurrency(room.price)}
+                              <span className="text-sm text-gray-500 font-normal">/tháng</span>
+                            </p>
+                          </div>
+                          <Link
+                            to="/phong-tro"
+                            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg"
+                          >
+                            Chi tiết →
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="max-w-4xl mx-auto">
-            <div className="flex flex-wrap justify-center gap-4 mb-8">
-              {timeline.map((item, index) => (
+
+          {/* Right Column - Sidebar */}
+          <div className="space-y-6">
+            
+            {/* Filter by Area */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span className="text-2xl">📏</span>
+                Lọc theo diện tích
+              </h3>
+              <div className="space-y-2">
                 <button
-                  key={index}
-                  onClick={() => setActiveTimeline(index)}
-                  className={`px-6 py-3 rounded-xl font-extrabold transition-all shadow-md ${
-                    activeTimeline === index
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-500/50 scale-105'
-                      : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-200 hover:border-indigo-500'
+                  onClick={() => setFilterArea('all')}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-all ${
+                    filterArea === 'all' 
+                      ? 'bg-blue-500 text-white font-semibold shadow-md' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  {item.year}
+                  Tất cả phòng
                 </button>
-              ))}
-            </div>
-            <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-              <span className="text-6xl mb-4 block">{['🌱', '📈', '💡', '🚀', '🏆'][activeTimeline]}</span>
-              <h3 className="text-3xl font-bold text-gray-800 mb-2">{timeline[activeTimeline].year} - {timeline[activeTimeline].title}</h3>
-              <p className="text-xl text-gray-600">{timeline[activeTimeline].desc}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Values */}
-        <div className="mb-20">
-          <div className="text-center mb-12">
-            <span className="inline-block px-4 py-2 bg-green-100 text-green-700 rounded-full text-sm font-medium mb-4">
-              💎 Giá trị cốt lõi
-            </span>
-            <h2 className="text-4xl font-bold text-gray-800 mb-4">Giá Trị Cốt Lõi</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">Những nguyên tắc định hướng mọi hoạt động của chúng tôi</p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {values.map((value, index) => (
-              <div key={index} className="group bg-white rounded-2xl shadow-lg p-8 text-center hover:shadow-2xl transition-all hover:-translate-y-2 relative overflow-hidden">
-                <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${value.color}`}></div>
-                <div className={`w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br ${value.color} flex items-center justify-center text-4xl group-hover:scale-110 transition-transform`}>
-                  {value.icon}
-                </div>
-                <h3 className="text-xl font-bold text-gray-800 mb-3">{value.title}</h3>
-                <p className="text-gray-600">{value.desc}</p>
+                <button
+                  onClick={() => setFilterArea('small')}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-all ${
+                    filterArea === 'small' 
+                      ? 'bg-blue-500 text-white font-semibold shadow-md' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Dưới 20m² (Nhỏ)
+                </button>
+                <button
+                  onClick={() => setFilterArea('medium')}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-all ${
+                    filterArea === 'medium' 
+                      ? 'bg-blue-500 text-white font-semibold shadow-md' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  20-30m² (Trung bình)
+                </button>
+                <button
+                  onClick={() => setFilterArea('large')}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-all ${
+                    filterArea === 'large' 
+                      ? 'bg-blue-500 text-white font-semibold shadow-md' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Trên 30m² (Lớn)
+                </button>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* Team */}
-        <div className="mb-20">
-          <div className="text-center mb-12">
-            <span className="inline-block px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-4">
-              👥 Đội ngũ
-            </span>
-            <h2 className="text-4xl font-bold text-gray-800 mb-4">Đội Ngũ Của Chúng Tôi</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">Những con người tận tâm, chuyên nghiệp, luôn sẵn sàng phục vụ bạn</p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {team.map((member, index) => (
-              <div key={index} className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all">
-                <div className="bg-gradient-to-br from-indigo-100 to-purple-100 p-8 text-center">
-                  <div className="w-24 h-24 mx-auto bg-white rounded-full flex items-center justify-center text-5xl shadow-lg group-hover:scale-110 transition-transform">
-                    {member.avatar}
-                  </div>
-                </div>
-                <div className="p-6 text-center">
-                  <h3 className="text-xl font-bold text-gray-800 mb-1">{member.name}</h3>
-                  <p className="text-indigo-600 font-medium mb-2">{member.role}</p>
-                  <p className="text-gray-500 text-sm mb-4">{member.desc}</p>
-                  <div className="flex justify-center gap-3">
-                    <a href={member.social.fb} className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 hover:bg-blue-200 transition-colors">f</a>
-                    <a href={member.social.linkedin} className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 hover:bg-blue-200 transition-colors">in</a>
-                  </div>
-                </div>
+            {/* Latest Rooms */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span className="text-2xl">🆕</span>
+                Phòng mới đăng
+              </h3>
+              <div className="space-y-3">
+                {latestRooms.slice(0, 5).map((room) => (
+                  <Link
+                    key={room._id}
+                    to="/phong-tro"
+                    className="flex gap-3 p-3 bg-gray-50 rounded-lg hover:bg-blue-50 transition-all group"
+                  >
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      {room.images && room.images.length > 0 ? (
+                        <img
+                          src={`http://localhost:5000${room.images[0]}`}
+                          alt={`Phòng ${room.roomNumber}`}
+                          className="w-full h-full object-cover rounded-lg"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.parentElement.innerHTML = '<span class="text-white text-2xl">🏠</span>';
+                          }}
+                        />
+                      ) : (
+                        <span className="text-white text-2xl">🏠</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">
+                        Phòng {room.roomNumber}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {room.area}m² • {room.capacity} người
+                      </p>
+                      <p className="text-sm font-bold text-blue-600">
+                        {formatCurrency(room.price)}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* Testimonials */}
-        <div className="mb-20">
-          <div className="text-center mb-12">
-            <span className="inline-block px-4 py-2 bg-yellow-100 text-yellow-700 rounded-full text-sm font-medium mb-4">
-              💬 Đánh giá
-            </span>
-            <h2 className="text-4xl font-bold text-gray-800 mb-4">Khách Hàng Nói Gì?</h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {testimonials.map((t, index) => (
-              <div key={index} className="bg-white rounded-2xl shadow-lg p-8 hover:shadow-xl transition-all">
-                <div className="flex gap-1 mb-4">
-                  {[...Array(t.rating)].map((_, i) => <span key={i} className="text-yellow-400 text-xl">★</span>)}
-                </div>
-                <p className="text-gray-600 mb-6 italic">"{t.content}"</p>
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center text-2xl">
-                    {t.avatar}
-                  </div>
+            {/* Contact Info */}
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-md p-6 text-white">
+              <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                <span className="text-2xl">📞</span>
+                Liên hệ với chúng tôi
+              </h3>
+              <div className="space-y-3">
+                <a href="tel:0123456789" className="flex items-center gap-3 p-3 bg-white/10 rounded-lg hover:bg-white/20 transition-all">
+                  <Phone className="w-5 h-5" />
                   <div>
-                    <h4 className="font-bold text-gray-800">{t.name}</h4>
-                    <p className="text-gray-500 text-sm">{t.role}</p>
+                    <p className="text-xs text-blue-100">Hotline</p>
+                    <p className="font-semibold">0123-456-789</p>
+                  </div>
+                </a>
+                <a href="mailto:contact@nhatro.com" className="flex items-center gap-3 p-3 bg-white/10 rounded-lg hover:bg-white/20 transition-all">
+                  <Mail className="w-5 h-5" />
+                  <div>
+                    <p className="text-xs text-blue-100">Email</p>
+                    <p className="font-semibold">contact@nhatro.com</p>
+                  </div>
+                </a>
+                <div className="flex items-center gap-3 p-3 bg-white/10 rounded-lg">
+                  <Clock className="w-5 h-5" />
+                  <div>
+                    <p className="text-xs text-blue-100">Giờ làm việc</p>
+                    <p className="font-semibold">8:00 - 22:00 (Hàng ngày)</p>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+              <a
+                href="tel:0123456789"
+                className="block w-full mt-4 py-3 bg-white text-blue-600 font-bold rounded-lg text-center hover:bg-blue-50 transition-all"
+              >
+                Gọi ngay →
+              </a>
+            </div>
 
-        {/* CTA */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-600 p-12 text-center">
-          <div className="absolute inset-0 bg-black/10"></div>
-          <div className="absolute top-0 left-0 w-64 h-64 bg-white rounded-full "></div>
-          <div className="absolute bottom-0 right-0 w-64 h-64 bg-white rounded-full "></div>
-          <div className="relative z-10">
-            <span className="text-6xl mb-6 block">🏠</span>
-            <h2 className="text-4xl font-bold text-white mb-4">Sẵn sàng tìm ngôi nhà mới?</h2>
-            <p className="text-white/90 text-lg mb-8 max-w-2xl mx-auto">
-              Hãy để chúng tôi giúp bạn tìm không gian sống lý tưởng với giá cả phải chăng
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/phong-trong" className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-indigo-700 rounded-full font-extrabold text-lg hover:shadow-2xl hover:scale-105 transition-all shadow-xl">
-                Khám phá phòng trống
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </Link>
-              <Link to="/lien-he" className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-white rounded-full font-bold text-lg hover:bg-white transition-all  shadow-xl border-2 border-white/40">
-                Liên hệ ngay
+            {/* Promo Banner */}
+            <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl shadow-md p-6 text-white text-center">
+              <div className="text-4xl mb-3">🎉</div>
+              <h3 className="text-lg font-bold mb-2">
+                Ưu đãi đặc biệt!
+              </h3>
+              <p className="text-sm text-purple-100 mb-4">
+                Miễn phí tháng đầu tiên cho khách hàng đăng ký mới
+              </p>
+              <Link
+                to="/login"
+                className="block w-full py-3 bg-white text-purple-600 font-bold rounded-lg hover:bg-purple-50 transition-all"
+              >
+                Đăng ký ngay →
               </Link>
             </div>
+
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }

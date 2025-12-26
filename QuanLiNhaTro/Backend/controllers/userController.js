@@ -1,5 +1,39 @@
 import User from '../models/User.js';
 
+// @desc    Create user
+// @route   POST /api/users
+// @access  Private/Admin
+export const createUser = async (req, res) => {
+  try {
+    const userData = req.body;
+
+    // Kiểm tra email đã tồn tại
+    const existingUser = await User.findOne({ email: userData.email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email đã được sử dụng'
+      });
+    }
+
+    // Tạo user mới
+    const user = await User.create(userData);
+
+    // Trả về user không có password
+    const userResponse = await User.findById(user._id).select('-password');
+
+    res.status(201).json({
+      success: true,
+      data: userResponse
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 // @desc    Get all users
 // @route   GET /api/users
 // @access  Private/Admin

@@ -1,353 +1,642 @@
-import { useEffect, useState } from 'react';
-import { contractService, roomService, tenantService } from '../../services';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Badge } from '../ui/badge';
+import { Plus, Edit, Trash2, Search, FileText, Calendar, DollarSign, CheckCircle } from 'lucide-react';
+import { contractService, tenantService, roomService } from '../../services';
+import { toast } from 'sonner';
 
 export default function ContractManagement() {
   const [contracts, setContracts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [deletingId, setDeletingId] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [rooms, setRooms] = useState([]);
   const [tenants, setTenants] = useState([]);
-  const [formData, setFormData] = useState({
-    contractNumber: '',
-    room: '',
-    tenant: '',
-    startDate: '',
-    endDate: '',
-    monthlyRent: 0,
-    deposit: 0,
-    paymentDate: 5,
-    status: 'active',
-  });
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [editingContract, setEditingContract] = useState(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const loadContracts = async () => {
-    setLoading(true);
-    setError('');
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
     try {
-      const [data, roomList, tenantList] = await Promise.all([
+      setLoading(true);
+      const [contractsData, tenantsData, roomsData] = await Promise.all([
         contractService.getContracts(),
-        roomService.getRooms(),
         tenantService.getTenants(),
+        roomService.getRooms()
       ]);
-      setContracts(data);
-      setRooms(roomList);
-      setTenants(tenantList);
-    } catch (err) {
-      setError(err.message || 'Không tải được hợp đồng');
+      setContracts(contractsData);
+      setTenants(tenantsData);
+      setRooms(roomsData);
+      console.log('Loaded rooms:', roomsData);
+      console.log('Sample room with price:', roomsData[0]);
+    } catch (error) {
+      toast.error('Không thể tải dữ liệu');
+      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadContracts();
-  }, []);
+  const filteredContracts = contracts.filter(contract => {
+    const tenant = contract.tenant;
+    const room = contract.room;
+    const matchesSearch = tenant?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         room?.roomNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || contract.status === filterStatus;
+    return matchesSearch && matchesStatus;
+  });
 
-  const resetForm = () => {
-    setEditing(null);
-    setFormData({
-      contractNumber: '',
-      room: rooms[0]?._id || '',
-      tenant: tenants[0]?._id || '',
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND'
+    }).format(amount);
+  };
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      active: 'bg-green-100 text-green-700',
+      expired: 'bg-gray-100 text-gray-700',
+      terminated: 'bg-red-100 text-red-700'
+    };
+    const labels = {
+      active: 'Đang hoạt động',
+      expired: 'Đã hết hạn',
+      terminated: 'Đã hủy'
+    };
+    return (
+      <Badge className={styles[status]}>
+        {labels[status]}
+      </Badge>
+    );
+  };
+
+  const getTenantName = (tenant) => {
+    if (!tenant) return 'N/A';
+    return tenant.fullName || tenant.name || 'N/A';
+  };
+
+  const getRoomNumber = (room) => {
+    if (!room) return 'N/A';
+    return room.roomNumber || 'N/A';
+  };
+
+  const generateContractNumber = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `HD-${year}${month}${day}-${random}`;
+  };
+
+  const handleAddContract = () => {
+    setEditingContract({
+      contractNumber: generateContractNumber(),
+      tenant: '',
+      room: '',
       startDate: '',
       endDate: '',
-      monthlyRent: 0,
       deposit: 0,
-      paymentDate: 5,
+      monthlyRent: 0,
+      terms: 'Thanh toán trước ngày 5 hàng tháng.\nKhông được nuôi thú cưng.\nGiữ gìn vệ sinh chung.',
       status: 'active',
+      signedDate: new Date().toISOString().split('T')[0],
+      // Tự động đánh dấu đã ký khi upload file
+      isSignedByTenant: true,
+      isSignedByAdmin: true,
+      confirmedAt: new Date().toISOString()
     });
+    setIsDialogOpen(true);
   };
 
-  const handleSubmit = async (e) => {
+  const handleEditContract = (contract) => {
+    setEditingContract({ 
+      ...contract,
+      // Đảm bảo trạng thái ký được giữ nguyên
+      isSignedByTenant: contract.isSignedByTenant || (contract.contractFile ? true : false),
+      isSignedByAdmin: contract.isSignedByAdmin || (contract.contractFile ? true : false),
+      confirmedAt: contract.confirmedAt || (contract.contractFile ? new Date().toISOString() : null)
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleSaveContract = async (e) => {
     e.preventDefault();
-    try {
-      if (editing) {
-        await contractService.updateContract(editing._id, formData);
-      } else {
-        await contractService.createContract(formData);
+    if (!editingContract) return;
+
+    // Validation cho hợp đồng mới
+    if (!editingContract._id) {
+      if (!editingContract.tenant) {
+        toast.error('❌ Vui lòng chọn người thuê!');
+        return;
       }
-      setShowForm(false);
-      resetForm();
-      await loadContracts();
-    } catch (err) {
-      alert(err.message || 'Lưu hợp đồng thất bại');
+      if (!editingContract.room) {
+        toast.error('❌ Vui lòng chọn phòng!');
+        return;
+      }
+      if (!editingContract.contractFile || typeof editingContract.contractFile === 'string') {
+        toast.error('❌ Vui lòng upload file hợp đồng!');
+        return;
+      }
     }
-  };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Xóa hợp đồng này?')) return;
     try {
-      setDeletingId(id);
-      await contractService.deleteContract(id);
-      await loadContracts();
-    } catch (err) {
-      alert(err.message || 'Xóa thất bại');
-    } finally {
-      setDeletingId('');
+      let contractId;
+      
+      if (editingContract._id) {
+        // Update existing contract
+        await contractService.updateContract(editingContract._id, editingContract);
+        contractId = editingContract._id;
+        toast.success('✅ Cập nhật hợp đồng thành công!');
+      } else {
+        // Create new contract - Loại bỏ file object trước khi gửi
+        const contractData = { ...editingContract };
+        delete contractData.contractFile; // Xóa file object khỏi payload
+        
+        console.log('📝 Sending contract data to backend:', contractData);
+        const newContract = await contractService.createContract(contractData);
+        console.log('✅ Contract created:', newContract);
+        contractId = newContract._id;
+        toast.success('🎉 Thêm hợp đồng thành công!');
+      }
+      
+      // Upload file if selected
+      if (editingContract.contractFile && typeof editingContract.contractFile !== 'string') {
+        const formData = new FormData();
+        formData.append('contractFile', editingContract.contractFile);
+        
+        await contractService.uploadContractFile(contractId, formData);
+        toast.success('📄 Upload file hợp đồng thành công!');
+        
+        // Tự động đánh dấu đã ký và xác nhận khi upload file
+        await contractService.confirmContract(contractId);
+        toast.success('✅ Hợp đồng đã được xác nhận!');
+      }
+      
+      setIsDialogOpen(false);
+      setEditingContract(null);
+      await loadData(); // Reload data
+    } catch (error) {
+      toast.error(error.message || 'Không thể lưu thông tin hợp đồng');
+      console.error('Error saving contract:', error);
     }
   };
 
-  const startEdit = (c) => {
-    setEditing(c);
-    setFormData({
-      contractNumber: c.contractNumber || '',
-      room: c.room?._id || c.room || '',
-      tenant: c.tenant?._id || c.tenant || '',
-      startDate: c.startDate ? c.startDate.substring(0,10) : '',
-      endDate: c.endDate ? c.endDate.substring(0,10) : '',
-      monthlyRent: c.monthlyRent || 0,
-      deposit: c.deposit || 0,
-      paymentDate: c.paymentDate || 5,
-      status: c.status || 'active',
-    });
-    setShowForm(true);
+  const handleDeleteContract = async (contractId) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa hợp đồng này?')) return;
+    
+    try {
+      await contractService.deleteContract(contractId);
+      toast.success('✅ Xóa hợp đồng thành công!');
+      await loadData();
+    } catch (error) {
+      toast.error(error.message || 'Không thể xóa hợp đồng');
+      console.error('Error deleting contract:', error);
+    }
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-gray-800">Quản lý Hợp đồng</h2>
-          <p className="text-gray-500 mt-1">Lấy dữ liệu từ database (contractService)</p>
+          <h1 className="text-gray-900 mb-2">Quản Lý Hợp Đồng</h1>
+          <p className="text-gray-600">Quản lý hợp đồng thuê trọ</p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => { resetForm(); setShowForm(!showForm); }}
-            className="px-4 py-2 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 text-white rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5"
-          >
-            {showForm ? 'Đóng' : '+ Thêm hợp đồng'}
-          </button>
-          <button
-            onClick={loadContracts}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Làm mới
-          </button>
-        </div>
+        <Button 
+          onClick={handleAddContract}
+          className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          Thêm Hợp Đồng Mới
+        </Button>
+      </div>
+      
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-blue-800">
+                {editingContract && editingContract._id ? '✏️ Chỉnh Sửa Hợp Đồng' : '➕ Thêm Hợp Đồng Mới'}
+              </DialogTitle>
+              <DialogDescription className="text-gray-600">
+                {editingContract && editingContract._id 
+                  ? 'Chỉnh sửa thông tin hợp đồng thuê trọ'
+                  : 'Chọn người thuê để tự động điền thông tin, sau đó upload file hợp đồng'
+                }
+              </DialogDescription>
+            </DialogHeader>
+            {editingContract && (
+              <form onSubmit={handleSaveContract} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="tenant">Người Thuê *</Label>
+                    <Select
+                      value={editingContract.tenant}
+                      onValueChange={(value) => {
+                        console.log('Tenant selected:', value);
+                        const selectedTenant = tenants.find(t => t._id === value);
+                        console.log('Selected tenant:', selectedTenant);
+                        
+                        let newContract = { ...editingContract, tenant: value };
+                        
+                        // Tự động điền thông tin từ tenant
+                        if (selectedTenant) {
+                          // Nếu tenant có phòng, tự động chọn phòng đó
+                          if (selectedTenant.room) {
+                            const tenantRoom = rooms.find(r => r._id === selectedTenant.room._id || r._id === selectedTenant.room);
+                            if (tenantRoom) {
+                              console.log('Auto-selecting room:', tenantRoom);
+                              newContract.room = tenantRoom._id;
+                              newContract.monthlyRent = tenantRoom.price || 0;
+                            }
+                          }
+                          
+                          // Tự động điền ngày bắt đầu từ moveInDate nếu có
+                          if (selectedTenant.moveInDate && !editingContract.startDate) {
+                            newContract.startDate = new Date(selectedTenant.moveInDate).toISOString().split('T')[0];
+                          }
+                          
+                          // Tự động điền tiền cọc bằng 1 tháng thuê nếu chưa có
+                          if (!editingContract.deposit && newContract.monthlyRent > 0) {
+                            newContract.deposit = newContract.monthlyRent;
+                          }
+                          
+                          // Tự động điền ngày kết thúc (1 năm sau ngày bắt đầu)
+                          if (newContract.startDate && !editingContract.endDate) {
+                            const startDate = new Date(newContract.startDate);
+                            const endDate = new Date(startDate);
+                            endDate.setFullYear(endDate.getFullYear() + 1);
+                            newContract.endDate = endDate.toISOString().split('T')[0];
+                          }
+                        }
+                        
+                        setEditingContract(newContract);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn người thuê" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tenants.map(tenant => (
+                          <SelectItem key={tenant._id} value={tenant._id}>
+                            {tenant.fullName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {editingContract.tenant && (
+                      <p className="text-xs text-green-600 font-medium">
+                        ✓ Đã chọn: {tenants.find(t => t._id === editingContract.tenant)?.fullName}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="room">Phòng *</Label>
+                    <Select
+                      value={editingContract.room}
+                      onValueChange={(value) => {
+                        console.log('=== ROOM SELECTION ===');
+                        console.log('Selected room ID:', value);
+                        const selectedRoom = rooms.find(r => r._id === value);
+                        console.log('Found room:', selectedRoom);
+                        const roomPrice = selectedRoom?.price || 0;
+                        console.log('Room price:', roomPrice);
+                        
+                        const newContract = { 
+                          ...editingContract, 
+                          room: value,
+                          monthlyRent: roomPrice
+                        };
+                        console.log('New contract state:', newContract);
+                        setEditingContract(newContract);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn phòng" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {rooms.filter(r => r.status === 'available' || r._id === editingContract.room).map(room => (
+                          <SelectItem key={room._id} value={room._id}>
+                            Phòng {room.roomNumber}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {editingContract.room && (
+                      <p className="text-xs text-green-600 font-medium">
+                        ✓ Đã chọn: Phòng {rooms.find(r => r._id === editingContract.room)?.roomNumber}
+                        {editingContract.monthlyRent > 0 && ` - Giá: ${formatCurrency(editingContract.monthlyRent)}`}
+                        {(() => {
+                          const selectedTenant = tenants.find(t => t._id === editingContract.tenant);
+                          if (selectedTenant && selectedTenant.room && (selectedTenant.room._id === editingContract.room || selectedTenant.room === editingContract.room)) {
+                            return <span className="text-blue-600"> (Phòng hiện tại của người thuê)</span>;
+                          }
+                          return null;
+                        })()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="startDate">Ngày Bắt Đầu *</Label>
+                    <Input
+                      id="startDate"
+                      type="date"
+                      value={editingContract.startDate || ''}
+                      onChange={(e) => setEditingContract({ ...editingContract, startDate: e.target.value })}
+                      required
+                    />
+                    {editingContract.startDate && (() => {
+                      const selectedTenant = tenants.find(t => t._id === editingContract.tenant);
+                      if (selectedTenant && selectedTenant.moveInDate) {
+                        const tenantMoveInDate = new Date(selectedTenant.moveInDate).toISOString().split('T')[0];
+                        if (editingContract.startDate === tenantMoveInDate) {
+                          return <p className="text-xs text-blue-600 font-medium">📅 Từ ngày dọn vào của người thuê</p>;
+                        }
+                      }
+                      return null;
+                    })()}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="endDate">Ngày Kết Thúc *</Label>
+                    <Input
+                      id="endDate"
+                      type="date"
+                      value={editingContract.endDate || ''}
+                      onChange={(e) => setEditingContract({ ...editingContract, endDate: e.target.value })}
+                      required
+                    />
+                    {editingContract.endDate && editingContract.startDate && (() => {
+                      const startDate = new Date(editingContract.startDate);
+                      const endDate = new Date(editingContract.endDate);
+                      const diffTime = Math.abs(endDate - startDate);
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      if (diffDays === 365 || diffDays === 366) {
+                        return <p className="text-xs text-blue-600 font-medium">📅 Tự động tính 1 năm hợp đồng</p>;
+                      }
+                      return null;
+                    })()}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="deposit">Tiền Cọc (VNĐ) *</Label>
+                    <Input
+                      id="deposit"
+                      type="number"
+                      value={editingContract.deposit || 0}
+                      onChange={(e) => setEditingContract({ ...editingContract, deposit: parseInt(e.target.value) })}
+                      required
+                    />
+                    {editingContract.deposit > 0 && editingContract.deposit === editingContract.monthlyRent && (
+                      <p className="text-xs text-blue-600 font-medium">
+                        💰 Tự động điền bằng 1 tháng thuê
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="monthlyRent">Tiền Thuê/Tháng (VNĐ) *</Label>
+                    <Input
+                      id="monthlyRent"
+                      type="number"
+                      value={editingContract.monthlyRent || ''}
+                      onChange={(e) => setEditingContract({ ...editingContract, monthlyRent: parseInt(e.target.value) || 0 })}
+                      placeholder="Giá sẽ tự động điền khi chọn phòng"
+                      required
+                    />
+                    {editingContract.monthlyRent > 0 && (
+                      <p className="text-xs text-blue-600 font-medium">
+                        💰 Giá thuê từ phòng đã chọn
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signedDate">Ngày Ký *</Label>
+                    <Input
+                      id="signedDate"
+                      type="date"
+                      value={editingContract.signedDate || ''}
+                      onChange={(e) => setEditingContract({ ...editingContract, signedDate: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Trạng Thái *</Label>
+                    <Select
+                      value={editingContract.status || 'active'}
+                      onValueChange={(value) => setEditingContract({ ...editingContract, status: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Đang hoạt động</SelectItem>
+                        <SelectItem value="expired">Đã hết hạn</SelectItem>
+                        <SelectItem value="terminated">Đã hủy</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="terms">Điều Khoản</Label>
+                  <Textarea
+                    id="terms"
+                    value={editingContract.terms || ''}
+                    onChange={(e) => setEditingContract({ ...editingContract, terms: e.target.value })}
+                    rows={5}
+                  />
+                </div>
+
+                <div className="space-y-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <Label htmlFor="contractFile" className="text-lg font-semibold text-blue-800">
+                    📄 File Hợp Đồng (PDF) *
+                  </Label>
+                  <p className="text-sm text-blue-600 mb-2">
+                    Bước cuối cùng: Upload file hợp đồng đã ký để hoàn tất
+                  </p>
+                  <Input
+                    id="contractFile"
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => setEditingContract({ ...editingContract, contractFile: e.target.files[0] })}
+                    className="border-blue-300 focus:border-blue-500"
+                  />
+                  {editingContract.contractFile && typeof editingContract.contractFile !== 'string' && (
+                    <p className="text-sm text-green-600 font-medium">
+                      ✓ Đã chọn file: {editingContract.contractFile.name}
+                    </p>
+                  )}
+                  {editingContract.contractFile && typeof editingContract.contractFile === 'string' && (
+                    <p className="text-sm text-gray-600">
+                      File hiện tại: <a href={`http://localhost:5000${editingContract.contractFile}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Xem file</a>
+                    </p>
+                  )}
+                  {!editingContract.contractFile && (
+                    <p className="text-sm text-orange-600">
+                      ⚠️ Vui lòng upload file hợp đồng để hoàn tất việc tạo hợp đồng
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Hủy
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all"
+                    disabled={!editingContract._id && (!editingContract.contractFile || typeof editingContract.contractFile === 'string')}
+                  >
+                    {editingContract?._id ? 'Cập nhật' : 
+                     (editingContract.contractFile && typeof editingContract.contractFile !== 'string') ? 
+                     '📄 Hoàn Tất Tạo Hợp Đồng' : '⏳ Chờ Upload File'}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Tìm kiếm theo tên người thuê hoặc số phòng..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Lọc theo trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="active">Đang hoạt động</SelectItem>
+                <SelectItem value="expired">Đã hết hạn</SelectItem>
+                <SelectItem value="terminated">Đã hủy</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Contracts List */}
+      <div className="space-y-4">
+        {filteredContracts.map((contract) => (
+          <Card key={contract._id}>
+            <CardContent className="p-6">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-gray-900">{contract.tenant?.fullName || 'N/A'}</h3>
+                      <p className="text-sm text-gray-500 mt-1">Phòng {contract.room?.roomNumber || 'N/A'}</p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {getStatusBadge(contract.status)}
+                      {contract.contractFile && (
+                        <Badge className="bg-blue-100 text-blue-700">
+                          📄 Có file
+                        </Badge>
+                      )}
+                      {contract.confirmedAt && (
+                        <Badge className="bg-green-100 text-green-700">
+                          ✅ Đã xác nhận
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <div>
+                        <p className="text-gray-600">Bắt đầu</p>
+                        <p className="text-gray-900">
+                          {new Date(contract.startDate).toLocaleDateString('vi-VN')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <div>
+                        <p className="text-gray-600">Kết thúc</p>
+                        <p className="text-gray-900">
+                          {new Date(contract.endDate).toLocaleDateString('vi-VN')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <DollarSign className="w-4 h-4 text-gray-400" />
+                      <div>
+                        <p className="text-gray-600">Tiền cọc</p>
+                        <p className="text-gray-900">{formatCurrency(contract.deposit)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <DollarSign className="w-4 h-4 text-gray-400" />
+                      <div>
+                        <p className="text-gray-600">Tiền thuê</p>
+                        <p className="text-gray-900">{formatCurrency(contract.monthlyRent)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex lg:flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 lg:flex-none"
+                    onClick={() => handleEditContract(contract)}
+                  >
+                    <Edit className="w-4 h-4 lg:mr-2" />
+                    <span className="hidden lg:inline">Sửa</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 lg:flex-none text-red-600 hover:text-red-700"
+                    onClick={() => handleDeleteContract(contract._id)}
+                  >
+                    <Trash2 className="w-4 h-4 lg:mr-2" />
+                    <span className="hidden lg:inline">Xóa</span>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {showForm && (
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <h3 className="text-xl font-bold mb-4">{editing ? 'Cập nhật hợp đồng' : 'Thêm hợp đồng mới'}</h3>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Mã hợp đồng</label>
-              <input
-                type="text"
-                value={formData.contractNumber}
-                onChange={(e) => setFormData({ ...formData, contractNumber: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Phòng</label>
-              <select
-                value={formData.room}
-                onChange={(e) => setFormData({ ...formData, room: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                required
-              >
-                <option value="">Chọn phòng</option>
-                {rooms.map((r) => (
-                  <option key={r._id} value={r._id}>Phòng {r.roomNumber}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Người thuê</label>
-              <select
-                value={formData.tenant}
-                onChange={(e) => setFormData({ ...formData, tenant: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                required
-              >
-                <option value="">Chọn người thuê</option>
-                {tenants.map((t) => (
-                  <option key={t._id} value={t._id}>{t.fullName}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Ngày bắt đầu</label>
-              <input
-                type="date"
-                value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Ngày kết thúc</label>
-              <input
-                type="date"
-                value={formData.endDate}
-                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Giá thuê</label>
-              <input
-                type="number"
-                value={formData.monthlyRent}
-                onChange={(e) => setFormData({ ...formData, monthlyRent: parseFloat(e.target.value) })}
-                className="w-full px-3 py-2 border rounded-lg"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Đặt cọc</label>
-              <input
-                type="number"
-                value={formData.deposit}
-                onChange={(e) => setFormData({ ...formData, deposit: parseFloat(e.target.value) })}
-                className="w-full px-3 py-2 border rounded-lg"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Ngày thanh toán (1-28)</label>
-              <input
-                type="number"
-                min={1}
-                max={28}
-                value={formData.paymentDate}
-                onChange={(e) => setFormData({ ...formData, paymentDate: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Trạng thái</label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-              >
-                <option value="active">Hiệu lực</option>
-                <option value="expired">Hết hạn</option>
-                <option value="terminated">Đã hủy</option>
-              </select>
-            </div>
-            <div className="md:col-span-2 flex gap-3">
-              <button
-                type="submit"
-                className="px-5 py-2 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 transition"
-              >
-                Lưu
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowForm(false); resetForm(); }}
-                className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-              >
-                Hủy
-              </button>
-            </div>
-          </form>
-        </div>
+      {filteredContracts.length === 0 && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <p className="text-gray-500">Không tìm thấy hợp đồng nào</p>
+          </CardContent>
+        </Card>
       )}
-
-      {error && <div className="mb-4 p-3 rounded bg-red-50 text-red-700 border border-red-200">{error}</div>}
-
-      {loading ? (
-        <div className="text-center py-16">Đang tải...</div>
-      ) : (
-        <>
-          <button
-            type="button"
-            onClick={() => { resetForm(); setShowForm(true); }}
-            className="w-full mb-4 text-left border-2 border-dashed border-blue-300 rounded-xl bg-white p-4 flex items-center justify-between hover:border-blue-500 hover:bg-blue-50 transition shadow-sm"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-2xl">+</div>
-              <div>
-                <div className="text-lg font-semibold text-blue-700">Thêm hợp đồng mới</div>
-                <div className="text-sm text-gray-500">Mở form để nhập thông tin hợp đồng</div>
-              </div>
-            </div>
-            <span className="text-sm text-blue-600 font-semibold">Mở form</span>
-          </button>
-
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Mã HĐ</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Phòng</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Người thuê</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Thời hạn</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Giá thuê</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Trạng thái</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {contracts.map((c) => (
-                  <tr key={c._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                      {c.contractNumber}
-                      <div className="text-xs text-gray-500">ID: {c._id}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{c.room?.roomNumber || 'N/A'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{c.tenant?.fullName || 'N/A'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {c.startDate ? new Date(c.startDate).toLocaleDateString('vi-VN') : '—'}
-                      {' - '}
-                      {c.endDate ? new Date(c.endDate).toLocaleDateString('vi-VN') : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {c.monthlyRent?.toLocaleString('vi-VN')} đ
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        c.status === 'active'
-                          ? 'bg-green-100 text-green-700'
-                          : c.status === 'expired'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}>
-                        {c.status === 'active' ? 'Hiệu lực' : c.status === 'expired' ? 'Hết hạn' : 'Đã huỷ'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-sm space-x-2">
-                      <button
-                        onClick={() => startEdit(c)}
-                        className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100"
-                      >
-                        Sửa
-                      </button>
-                      <button
-                        onClick={() => handleDelete(c._id)}
-                        disabled={deletingId === c._id}
-                        className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 disabled:opacity-50"
-                      >
-                        {deletingId === c._id ? 'Đang xóa...' : 'Xóa'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {contracts.length === 0 && <div className="p-6 text-center text-gray-500">Chưa có hợp đồng</div>}
-          </div>
-        </>
-      )}
-
-      {/* Floating quick add button */}
-      <button
-        type="button"
-        onClick={() => { resetForm(); setShowForm(true); }}
-        className="fixed bottom-6 right-6 px-4 py-3 rounded-full bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 text-white shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 focus:outline-none"
-      >
-        + Thêm hợp đồng
-      </button>
     </div>
   );
 }

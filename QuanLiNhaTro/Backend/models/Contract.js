@@ -47,9 +47,47 @@ const contractSchema = new mongoose.Schema({
   specialConditions: {
     type: String
   },
+  contractFile: {
+    type: String,
+    default: null
+  },
   signedDate: {
     type: Date,
     default: Date.now
+  },
+  // Online signature fields
+  isSignedByTenant: {
+    type: Boolean,
+    default: false
+  },
+  isSignedByAdmin: {
+    type: Boolean,
+    default: false
+  },
+  tenantSignature: {
+    type: String, // Base64 encoded signature image or text
+    default: null
+  },
+  adminSignature: {
+    type: String, // Base64 encoded signature image or text
+    default: null
+  },
+  tenantSignedAt: {
+    type: Date,
+    default: null
+  },
+  adminSignedAt: {
+    type: Date,
+    default: null
+  },
+  signatureType: {
+    type: String,
+    enum: ['digital', 'handwritten', 'text'],
+    default: 'digital'
+  },
+  confirmedAt: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true

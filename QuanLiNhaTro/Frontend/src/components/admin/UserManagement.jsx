@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
 import { userService, tenantService } from '../../services';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { toast } from 'sonner';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -7,6 +14,25 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all'); // all, user, admin
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone: '',
+    dateOfBirth: '',
+    hometown: '',
+    currentAddress: '',
+    idCard: '',
+    occupation: 'Người thuê',
+    emergencyContact: {
+      name: '',
+      phone: '',
+      relationship: ''
+    },
+    role: 'user'
+  });
 
   const loadUsers = async () => {
     setLoading(true);
@@ -43,6 +69,82 @@ export default function UserManagement() {
     return new Date(dateString).toLocaleDateString('vi-VN');
   };
 
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingUser) {
+        // Update existing user
+        await userService.updateUser(editingUser._id, newUser);
+        toast.success('✅ Cập nhật tài khoản thành công!');
+      } else {
+        // Create new user
+        await userService.createUser(newUser);
+        toast.success('✅ Tạo tài khoản thành công!');
+      }
+      setIsDialogOpen(false);
+      setEditingUser(null);
+      setNewUser({
+        name: '',
+        email: '',
+        password: '',
+        phone: '',
+        dateOfBirth: '',
+        hometown: '',
+        currentAddress: '',
+        idCard: '',
+        occupation: 'Người thuê',
+        emergencyContact: {
+          name: '',
+          phone: '',
+          relationship: ''
+        },
+        role: 'user'
+      });
+      await loadUsers();
+    } catch (err) {
+      toast.error(err.message || 'Không thể lưu tài khoản');
+    }
+  };
+
+  const handleEditUser = (user) => {
+    setEditingUser(user);
+    setNewUser({
+      name: user.name || '',
+      email: user.email || '',
+      password: '', // Không hiển thị password cũ
+      phone: user.phone || '',
+      dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
+      hometown: user.hometown || '',
+      currentAddress: user.currentAddress || '',
+      idCard: user.idCard || '',
+      occupation: user.occupation || 'Người thuê',
+      emergencyContact: {
+        name: user.emergencyContact?.name || '',
+        phone: user.emergencyContact?.phone || '',
+        relationship: user.emergencyContact?.relationship || ''
+      },
+      role: user.role || 'user'
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa tài khoản này?')) return;
+    try {
+      await userService.deleteUser(userId);
+      toast.success('✅ Xóa tài khoản thành công!');
+      await loadUsers();
+    } catch (err) {
+      toast.error(err.message || 'Không thể xóa tài khoản');
+    }
+  };
+
+  const handleAddNew = () => {
+    setEditingUser(null);
+    setNewUser({ name: '', email: '', password: '', phone: '', role: 'user' });
+    setIsDialogOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -62,6 +164,13 @@ export default function UserManagement() {
           <p className="text-gray-500 mt-1">Danh sách tất cả tài khoản đã đăng ký</p>
         </div>
         <div className="flex gap-3">
+          <Button
+            onClick={handleAddNew}
+            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Tạo Tài Khoản
+          </Button>
           <button
             onClick={loadUsers}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -70,6 +179,171 @@ export default function UserManagement() {
           </button>
         </div>
       </div>
+
+      {/* Create/Edit User Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingUser ? 'Chỉnh Sửa Tài Khoản' : 'Tạo Tài Khoản Mới'}</DialogTitle>
+            <DialogDescription>
+              {editingUser ? 'Cập nhật thông tin tài khoản' : 'Tạo tài khoản user để đăng nhập hệ thống'}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateUser} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Họ và Tên *</Label>
+              <Input
+                id="name"
+                value={newUser.name}
+                onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                placeholder="Nguyễn Văn A"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={newUser.email}
+                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                placeholder="user@example.com"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Mật khẩu {editingUser ? '' : '*'}</Label>
+              <Input
+                id="password"
+                type="password"
+                value={newUser.password}
+                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                placeholder={editingUser ? "Để trống nếu không đổi" : "Tối thiểu 6 ký tự"}
+                required={!editingUser}
+                minLength={6}
+              />
+              {editingUser && (
+                <p className="text-xs text-gray-500">Để trống nếu không muốn thay đổi mật khẩu</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Số điện thoại</Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={newUser.phone}
+                onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
+                placeholder="0987654321"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dateOfBirth">Ngày sinh</Label>
+              <Input
+                id="dateOfBirth"
+                type="date"
+                value={newUser.dateOfBirth}
+                onChange={(e) => setNewUser({ ...newUser, dateOfBirth: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="hometown">Quê quán</Label>
+              <Input
+                id="hometown"
+                value={newUser.hometown}
+                onChange={(e) => setNewUser({ ...newUser, hometown: e.target.value })}
+                placeholder="Tỉnh/Thành phố"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="currentAddress">Địa chỉ hiện tại</Label>
+              <Input
+                id="currentAddress"
+                value={newUser.currentAddress}
+                onChange={(e) => setNewUser({ ...newUser, currentAddress: e.target.value })}
+                placeholder="Địa chỉ chi tiết"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="idCard">CMND/CCCD</Label>
+              <Input
+                id="idCard"
+                value={newUser.idCard}
+                onChange={(e) => setNewUser({ ...newUser, idCard: e.target.value })}
+                placeholder="123456789"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="occupation">Nghề nghiệp</Label>
+              <Input
+                id="occupation"
+                value={newUser.occupation}
+                onChange={(e) => setNewUser({ ...newUser, occupation: e.target.value })}
+                placeholder="Sinh viên, Nhân viên văn phòng..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emergencyName">Người liên hệ khẩn cấp - Tên</Label>
+              <Input
+                id="emergencyName"
+                value={newUser.emergencyContact.name}
+                onChange={(e) => setNewUser({
+                  ...newUser,
+                  emergencyContact: { ...newUser.emergencyContact, name: e.target.value }
+                })}
+                placeholder="Nguyễn Văn B"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emergencyPhone">Người liên hệ khẩn cấp - Số điện thoại</Label>
+              <Input
+                id="emergencyPhone"
+                type="tel"
+                value={newUser.emergencyContact.phone}
+                onChange={(e) => setNewUser({
+                  ...newUser,
+                  emergencyContact: { ...newUser.emergencyContact, phone: e.target.value }
+                })}
+                placeholder="0987654321"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emergencyRelationship">Người liên hệ khẩn cấp - Quan hệ</Label>
+              <Input
+                id="emergencyRelationship"
+                value={newUser.emergencyContact.relationship}
+                onChange={(e) => setNewUser({
+                  ...newUser,
+                  emergencyContact: { ...newUser.emergencyContact, relationship: e.target.value }
+                })}
+                placeholder="Cha, Mẹ, Anh chị em..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role">Vai trò *</Label>
+              <Select
+                value={newUser.role}
+                onValueChange={(value) => setNewUser({ ...newUser, role: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">Người dùng</SelectItem>
+                  <SelectItem value="admin">Quản trị viên</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                Hủy
+              </Button>
+              <Button type="submit" className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700">
+                {editingUser ? 'Cập nhật' : 'Tạo Tài Khoản'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
@@ -138,12 +412,15 @@ export default function UserManagement() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Trạng thái
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Thao tác
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
                     Không có người dùng nào
                   </td>
                 </tr>
@@ -204,6 +481,26 @@ export default function UserManagement() {
                           {user.isActive ? 'Hoạt động' : 'Tạm khóa'}
                         </span>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => handleEditUser(user)}
+                            size="sm"
+                            variant="outline"
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => handleDeleteUser(user._id)}
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })
@@ -230,7 +527,6 @@ export default function UserManagement() {
               <p className="text-sm font-medium text-gray-500">Có hồ sơ người thuê</p>
               <p className="text-3xl font-bold text-green-600">{tenants.length}</p>
             </div>
-            <div className="text-4xl">✅</div>
           </div>
         </div>
         <div className="bg-white rounded-lg shadow-lg p-6">
@@ -241,7 +537,6 @@ export default function UserManagement() {
                 {users.filter(u => u.role === 'user' && !getUserTenant(u._id)).length}
               </p>
             </div>
-            <div className="text-4xl">⚠️</div>
           </div>
         </div>
       </div>
@@ -250,7 +545,6 @@ export default function UserManagement() {
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex">
           <div className="flex-shrink-0">
-            <span className="text-2xl">ℹ️</span>
           </div>
           <div className="ml-3">
             <h3 className="text-sm font-medium text-blue-800">Hướng dẫn</h3>

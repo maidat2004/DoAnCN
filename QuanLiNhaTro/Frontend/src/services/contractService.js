@@ -46,9 +46,12 @@ class ContractService {
    */
   async createContract(data) {
     try {
+      console.log('🚀 ContractService - Sending data:', data);
       const response = await api.post('/contracts', data);
+      console.log('✅ ContractService - Response:', response);
       return response.data;
     } catch (error) {
+      console.error('❌ ContractService - Error:', error);
       throw error;
     }
   }
@@ -73,6 +76,75 @@ class ContractService {
       const response = await api.delete(`/contracts/${id}`);
       return response;
     } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Upload file hợp đồng
+   */
+  async uploadContractFile(id, formData) {
+    try {
+      const response = await api.post(`/contracts/${id}/upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading contract file:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Ký hợp đồng bởi tenant
+   */
+  async signContractByTenant(id, signatureData) {
+    try {
+      const response = await api.post(`/contracts/${id}/sign-tenant`, signatureData);
+      return response.data;
+    } catch (error) {
+      console.error('Error signing contract by tenant:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Ký hợp đồng bởi admin
+   */
+  async signContractByAdmin(id, signatureData) {
+    try {
+      const response = await api.post(`/contracts/${id}/sign-admin`, signatureData);
+      return response.data;
+    } catch (error) {
+      console.error('Error signing contract by admin:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Lấy trạng thái ký hợp đồng
+   */
+  async getContractSignatureStatus(id) {
+    try {
+      const response = await api.get(`/contracts/${id}/signature-status`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting contract signature status:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Xác nhận hợp đồng
+   */
+  async confirmContract(id) {
+    try {
+      const response = await api.post(`/contracts/${id}/confirm`);
+      return response.data;
+    } catch (error) {
+      console.error('Error confirming contract:', error);
       throw error;
     }
   }

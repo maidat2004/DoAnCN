@@ -1,269 +1,300 @@
-import { useEffect, useState } from 'react';
-import { serviceService } from '../../services';
-
-const defaultForm = {
-  name: '',
-  type: 'other',
-  unitPrice: 0,
-  unit: '',
-  description: '',
-  isActive: true,
-};
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Plus, Edit, Trash2, Zap, Droplet, Wifi, Car, Trash } from 'lucide-react';
+import { serviceService } from '../../services/serviceService';
+import { toast } from 'sonner';
 
 export default function ServiceManagement() {
   const [services, setServices] = useState([]);
+  const [editingService, setEditingService] = useState(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [formData, setFormData] = useState(defaultForm);
-
-  const loadServices = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await serviceService.getServices();
-      setServices(data);
-    } catch (err) {
-      setError(err.message || 'Không tải được dịch vụ');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     loadServices();
   }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const loadServices = async () => {
     try {
-      if (editing) {
-        await serviceService.updateService(editing._id, formData);
-      } else {
-        await serviceService.createService(formData);
-      }
-      setShowForm(false);
-      setEditing(null);
-      setFormData(defaultForm);
-      await loadServices();
-    } catch (err) {
-      alert(err.message || 'Lưu thất bại');
+      setLoading(true);
+      const data = await serviceService.getServices();
+      setServices(data);
+    } catch (error) {
+      toast.error('Không thể tải danh sách dịch vụ');
+      console.error('Error loading services:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleEdit = (svc) => {
-    setEditing(svc);
-    setFormData({
-      name: svc.name,
-      type: svc.type,
-      unitPrice: svc.unitPrice,
-      unit: svc.unit,
-      description: svc.description || '',
-      isActive: svc.isActive,
-    });
-    setShowForm(true);
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND'
+    }).format(amount);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Xóa dịch vụ này?')) return;
+  const getServiceIcon = (name) => {
+    const icons = {
+      'Điện': Zap,
+      'Nước': Droplet,
+      'Internet': Wifi,
+      'Gửi xe': Car,
+      'Rác': Trash
+    };
+    const Icon = icons[name] || Zap;
+    return <Icon className="w-5 h-5" />;
+  };
+
+  const handleAddService = () => {
+    setEditingService({
+      name: '',
+      unitPrice: '',
+      unit: '',
+      description: ''
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleEditService = (service) => {
+    setEditingService({ ...service });
+    setIsDialogOpen(true);
+  };
+
+  const handleSaveService = async (e) => {
+    e.preventDefault();
+    if (!editingService) return;
+
     try {
-      await serviceService.deleteService(id);
+      if (editingService._id) {
+        // Update existing service
+        await serviceService.updateService(editingService._id, editingService);
+        toast.success('Cập nhật dịch vụ thành công');
+      } else {
+        // Create new service
+        await serviceService.createService(editingService);
+        toast.success('Tạo dịch vụ thành công');
+      }
+      
+      setIsDialogOpen(false);
+      setEditingService(null);
       await loadServices();
-    } catch (err) {
-      alert(err.message || 'Xóa thất bại');
+    } catch (error) {
+      toast.error('Không thể lưu dịch vụ');
+      console.error('Error saving service:', error);
+    }
+  };
+
+  const handleDeleteService = async (serviceId) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa dịch vụ này?')) return;
+    
+    try {
+      await serviceService.deleteService(serviceId);
+      toast.success('Xóa dịch vụ thành công');
+      await loadServices();
+    } catch (error) {
+      toast.error('Không thể xóa dịch vụ');
+      console.error('Error deleting service:', error);
     }
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-gray-800">Quản lý Dịch vụ</h2>
-          <p className="text-gray-500 mt-1">Kết nối database qua serviceService</p>
+          <h1 className="text-gray-900 mb-2">Quản Lý Dịch Vụ</h1>
+          <p className="text-gray-600">Quản lý các dịch vụ và đơn giá</p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => { setEditing(null); setFormData(defaultForm); setShowForm(!showForm); }}
-            className="px-4 py-2 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 text-white rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5"
-          >
-            {showForm ? 'Đóng' : '+ Thêm dịch vụ'}
-          </button>
-          <button
-            onClick={loadServices}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Làm mới
-          </button>
-        </div>
+        <Button 
+          onClick={handleAddService}
+          className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg"
+          size="lg"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          Thêm Dịch Vụ
+        </Button>
       </div>
 
-      {error && <div className="mb-4 p-3 rounded bg-red-50 text-red-700 border border-red-200">{error}</div>}
+      {/* Add/Edit Service Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {editingService?.name ? 'Chỉnh Sửa Dịch Vụ' : 'Thêm Dịch Vụ Mới'}
+              </DialogTitle>
+              <DialogDescription>
+                Nhập thông tin dịch vụ và đơn giá
+              </DialogDescription>
+            </DialogHeader>
+            {editingService && (
+              <form onSubmit={handleSaveService} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Tên Dịch Vụ *</Label>
+                  <Input
+                    id="name"
+                    value={editingService.name || ''}
+                    onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
+                    required
+                  />
+                </div>
 
-      {showForm && (
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <h3 className="text-xl font-bold mb-4">{editing ? 'Cập nhật dịch vụ' : 'Thêm dịch vụ mới'}</h3>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Tên dịch vụ</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Loại</label>
-              <select
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-              >
-                <option value="electricity">Điện</option>
-                <option value="water">Nước</option>
-                <option value="internet">Internet</option>
-                <option value="parking">Gửi xe</option>
-                <option value="cleaning">Dọn phòng</option>
-                <option value="other">Khác</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Đơn giá</label>
-              <input
-                type="number"
-                value={formData.unitPrice}
-                onChange={(e) => setFormData({ ...formData, unitPrice: parseFloat(e.target.value) })}
-                className="w-full px-3 py-2 border rounded-lg"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Đơn vị</label>
-              <input
-                type="text"
-                value={formData.unit}
-                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                placeholder="kWh, m³, tháng, ..."
-                required
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-2">Mô tả</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                rows={2}
-              />
-            </div>
-            <div className="md:col-span-2 flex items-center gap-3">
-              <input
-                id="isActive"
-                type="checkbox"
-                checked={formData.isActive}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                className="h-4 w-4 text-blue-600"
-              />
-              <label htmlFor="isActive" className="text-sm text-gray-700">Kích hoạt</label>
-            </div>
-            <div className="md:col-span-2 flex gap-3">
-              <button
-                type="submit"
-                className="px-5 py-2 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 transition"
-              >
-                Lưu
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowForm(false); setEditing(null); setFormData(defaultForm); }}
-                className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-              >
-                Hủy
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="unitPrice">Đơn Giá (VNĐ) *</Label>
+                    <Input
+                      id="unitPrice"
+                      type="number"
+                      step="0.01"
+                      value={editingService.unitPrice === '' || editingService.unitPrice === null || editingService.unitPrice === undefined ? '' : editingService.unitPrice}
+                      onChange={(e) => setEditingService({ ...editingService, unitPrice: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="unit">Đơn Vị *</Label>
+                    <Input
+                      id="unit"
+                      value={editingService.unit || ''}
+                      onChange={(e) => setEditingService({ ...editingService, unit: e.target.value })}
+                      placeholder="Ví dụ: kWh, m³, tháng"
+                      required
+                    />
+                  </div>
+                </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="description">Mô Tả</Label>
+                  <Textarea
+                    id="description"
+                    value={editingService.description || ''}
+                    onChange={(e) => setEditingService({ ...editingService, description: e.target.value })}
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Hủy
+                  </Button>
+                  <Button type="submit">
+                    Lưu
+                  </Button>
+                </div>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+      {/* Services Grid */}
       {loading ? (
-        <div className="text-center py-16">Đang tải...</div>
-      ) : (
-        <>
-          <button
-            type="button"
-            onClick={() => { setEditing(null); setFormData(defaultForm); setShowForm(true); }}
-            className="w-full mb-4 text-left border-2 border-dashed border-blue-300 rounded-xl bg-white p-4 flex items-center justify-between hover:border-blue-500 hover:bg-blue-50 transition shadow-sm"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-2xl">+</div>
-              <div>
-                <div className="text-lg font-semibold text-blue-700">Thêm dịch vụ mới</div>
-                <div className="text-sm text-gray-500">Nhấn để mở form cấu hình giá/đơn vị</div>
+        <Card>
+          <CardContent className="p-12">
+            <div className="flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-gray-600">Đang tải...</p>
               </div>
             </div>
-            <span className="text-sm text-blue-600 font-semibold">Mở form</span>
-          </button>
+          </CardContent>
+        </Card>
+      ) : services.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Zap className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Chưa có dịch vụ nào</h3>
+            <p className="text-gray-600 mb-6">Thêm dịch vụ đầu tiên để bắt đầu quản lý</p>
+            <Button onClick={handleAddService} size="lg">
+              <Plus className="w-5 h-5 mr-2" />
+              Thêm Dịch Vụ Đầu Tiên
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {services.map((service) => (
+          <Card key={service._id}>
+            <CardHeader className="pb-4">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">
+                    {getServiceIcon(service.name)}
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">{service.name}</CardTitle>
+                    <p className="text-sm text-gray-500 mt-1">{service.unit}</p>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Đơn giá</p>
+                <p className="text-xl text-gray-900">{formatCurrency(service.unitPrice)}</p>
+              </div>
 
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Tên dịch vụ</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Loại</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Đơn giá</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Đơn vị</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Trạng thái</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {services.map((s) => (
-                  <tr key={s._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-900">{s.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{s.type}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{s.unitPrice?.toLocaleString('vi-VN')} đ</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{s.unit}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${s.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-700'}`}>
-                        {s.isActive ? 'Đang dùng' : 'Tắt'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-sm space-x-2">
-                      <button
-                        onClick={() => handleEdit(s)}
-                        className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100"
-                      >
-                        Sửa
-                      </button>
-                      <button
-                        onClick={() => handleDelete(s._id)}
-                        className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"
-                      >
-                        Xóa
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {services.length === 0 && <div className="p-6 text-center text-gray-500">Chưa có dịch vụ</div>}
-          </div>
-        </>
+              {service.description && (
+                <p className="text-sm text-gray-600">
+                  {service.description}
+                </p>
+              )}
+
+              <div className="flex gap-2 pt-2 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => handleEditService(service)}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Sửa
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-red-600 hover:text-red-700"
+                  onClick={() => handleDeleteService(service._id)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Xóa
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
       )}
 
-      {/* Floating quick add button */}
-      <button
-        type="button"
-        onClick={() => { setEditing(null); setFormData(defaultForm); setShowForm(true); }}
-        className="fixed bottom-6 right-6 px-4 py-3 rounded-full bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 text-white shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 focus:outline-none"
-      >
-        + Thêm dịch vụ
-      </button>
+      {/* Summary Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Tổng Quan Dịch Vụ</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Tổng số dịch vụ:</span>
+              <span className="text-gray-900">{services.length}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Dịch vụ cố định:</span>
+              <span className="text-gray-900">
+                {services.filter(s => s.unit.includes('tháng')).length}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Dịch vụ theo sử dụng:</span>
+              <span className="text-gray-900">
+                {services.filter(s => !s.unit.includes('tháng')).length}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -54,11 +54,45 @@ class TenantService {
   }
 
   /**
-   * Cập nhật người thuê
+   * Tạo người thuê mới kèm tạo tài khoản (tự động)
+   * Backend sẽ tự động tạo user account nếu email chưa có
+   */
+  async createTenantWithAccount(data) {
+    try {
+      const response = await api.post('/tenants', data);
+      // Backend trả về: { success, data, userCreated, emailSent, message }
+      return {
+        tenant: response.data,
+        account: response.userCreated ? {
+          email: data.email,
+          password: response.message?.match(/mật khẩu: (\w+)/)?.[1] || 'Kiểm tra email'
+        } : null,
+        message: response.message,
+        emailSent: response.emailSent
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Cập nhật người thuê (Admin only)
    */
   async updateTenant(id, data) {
     try {
       const response = await api.put(`/tenants/${id}`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Cập nhật thông tin cá nhân (User tự cập nhật)
+   */
+  async updateOwnProfile(data) {
+    try {
+      const response = await api.put('/tenants/profile/me', data);
       return response.data;
     } catch (error) {
       throw error;

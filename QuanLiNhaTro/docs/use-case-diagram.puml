@@ -1,0 +1,156 @@
+@startuml Hệ Thống Quản Lý Nhà Trọ
+
+!define ACTOR_COLOR #4A90E2
+!define USECASE_COLOR #50C878
+!define SYSTEM_COLOR #F5F5F5
+
+skinparam actor {
+  BackgroundColor ACTOR_COLOR
+  BorderColor #2E5C8A
+}
+skinparam usecase {
+  BackgroundColor USECASE_COLOR
+  BorderColor #2E8B57
+}
+skinparam rectangle {
+  BackgroundColor SYSTEM_COLOR
+  BorderColor #CCCCCC
+}
+
+left to right direction
+
+actor "Admin" as admin #FF6B6B
+actor "Người Thuê\n(User)" as user #4ECDC4
+
+rectangle "Hệ Thống Quản Lý Nhà Trọ" {
+  
+  ' Admin Use Cases
+  package "Quản Lý Phòng" {
+    usecase "Thêm phòng mới" as UC1
+    usecase "Sửa thông tin phòng" as UC2
+    usecase "Xóa phòng" as UC3
+    usecase "Xem danh sách phòng" as UC4
+  }
+  
+  package "Quản Lý Người Thuê" {
+    usecase "Thêm người thuê" as UC5
+    usecase "Cấp phòng cho người thuê" as UC6
+    usecase "Sửa thông tin người thuê" as UC7
+    usecase "Xóa người thuê" as UC8
+    usecase "Tạo tài khoản tự động" as UC9
+  }
+  
+  package "Quản Lý Dịch Vụ" {
+    usecase "Thêm dịch vụ" as UC10
+    usecase "Cập nhật giá dịch vụ" as UC11
+    usecase "Xóa dịch vụ" as UC12
+  }
+  
+  package "Quản Lý Hóa Đơn" {
+    usecase "Tạo hóa đơn" as UC13
+    usecase "Xem nhắc nhở\ntạo hóa đơn" as UC14
+    usecase "Tính tiền phòng\ntheo ngày" as UC15
+    usecase "Nhập số điện/nước" as UC16
+    usecase "Xác nhận thanh toán" as UC17
+    usecase "Gửi hóa đơn qua email" as UC18
+  }
+  
+  package "Quản Lý Hợp Đồng" {
+    usecase "Tạo hợp đồng" as UC19
+    usecase "Upload file hợp đồng" as UC20
+    usecase "Gia hạn hợp đồng" as UC21
+  }
+  
+  package "Quản Lý Yêu Cầu" {
+    usecase "Xem yêu cầu hỗ trợ" as UC22
+    usecase "Cập nhật trạng thái\nyêu cầu" as UC23
+  }
+  
+  package "Dashboard" {
+    usecase "Xem thống kê" as UC24
+    usecase "Xem báo cáo doanh thu" as UC25
+  }
+  
+  ' User Use Cases
+  package "Thông Tin Cá Nhân" {
+    usecase "Xem thông tin phòng" as UC26
+    usecase "Xem thông tin\nngười liên hệ" as UC27
+    usecase "Cập nhật thông tin" as UC28
+  }
+  
+  package "Hóa Đơn" {
+    usecase "Xem danh sách\nhóa đơn" as UC29
+    usecase "Xem chi tiết hóa đơn" as UC30
+  }
+  
+  package "Yêu Cầu Hỗ Trợ" {
+    usecase "Tạo yêu cầu hỗ trợ" as UC31
+    usecase "Xem lịch sử yêu cầu" as UC32
+  }
+  
+  ' Authentication
+  usecase "Đăng nhập" as UC33
+  usecase "Đăng xuất" as UC34
+}
+
+' Admin relationships
+admin --> UC1
+admin --> UC2
+admin --> UC3
+admin --> UC4
+admin --> UC5
+admin --> UC6
+admin --> UC7
+admin --> UC8
+admin --> UC10
+admin --> UC11
+admin --> UC12
+admin --> UC13
+admin --> UC14
+admin --> UC16
+admin --> UC17
+admin --> UC18
+admin --> UC19
+admin --> UC20
+admin --> UC21
+admin --> UC22
+admin --> UC23
+admin --> UC24
+admin --> UC25
+admin --> UC33
+admin --> UC34
+
+' User relationships
+user --> UC26
+user --> UC27
+user --> UC28
+user --> UC29
+user --> UC30
+user --> UC31
+user --> UC32
+user --> UC33
+user --> UC34
+
+' Include relationships
+UC13 ..> UC15 : <<include>>
+UC13 ..> UC16 : <<include>>
+UC5 ..> UC9 : <<include>>
+UC6 ..> UC9 : <<include>>
+
+' Extend relationships
+UC14 ..> UC13 : <<extend>>
+UC18 ..> UC17 : <<extend>>
+
+note right of UC15
+  Tính tiền phòng dựa vào:
+  - Ngày thanh toán HĐ trước
+  - Hoặc ngày vào phòng
+end note
+
+note right of UC14
+  Nhắc nhở dựa vào:
+  - Người thuê chưa có HĐ tháng này
+  - Ngày đáo hạn thanh toán
+end note
+
+@enduml

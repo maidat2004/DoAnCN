@@ -67,8 +67,19 @@ const invoiceSchema = new mongoose.Schema({
     enum: ['cash', 'transfer', 'momo', 'vnpay'],
     default: 'cash'
   },
+  emailSent: {
+    type: Boolean,
+    default: false
+  },
+  emailSentDate: {
+    type: Date
+  },
   notes: {
     type: String
+  },
+  isDraft: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

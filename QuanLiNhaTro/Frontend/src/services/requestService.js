@@ -66,6 +66,21 @@ class RequestService {
   }
 
   /**
+   * Cập nhật trạng thái yêu cầu
+   */
+  async updateRequestStatus(id, status, note = '') {
+    try {
+      const response = await api.put(`/requests/${id}`, { 
+        status,
+        ...(note && { reviewNote: note })
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
    * Xử lý yêu cầu
    */
   async resolveRequest(id, data) {

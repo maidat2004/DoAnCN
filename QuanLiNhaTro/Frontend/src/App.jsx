@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts';
 import { useAuth } from './hooks';
@@ -7,16 +8,12 @@ import LoginPage from './components/LoginPage';
 
 // Public Pages with Layout
 import PublicLayout from './components/public/PublicLayout';
-import HomePage from './components/public/HomePage';
-import RoomsPage from './components/public/RoomsPage';
-import PricingPage from './components/public/PricingPage';
-import AmenitiesPage from './components/public/AmenitiesPage';
+import ArticlePage from './components/public/ArticlePage';
+import RoomGalleryPage from './components/public/RoomGalleryPage';
 import AboutPage from './components/public/AboutPage';
-import ContactPage from './components/public/ContactPage';
 
 // Admin Pages
 import AdminLayout from './components/admin/AdminLayout';
-import AdminDashboard from './components/admin/AdminDashboard';
 import UserManagement from './components/admin/UserManagement';
 import RoomManagement from './components/admin/RoomManagement';
 import TenantManagement from './components/admin/TenantManagement';
@@ -28,11 +25,12 @@ import RequestManagement from './components/admin/RequestManagement';
 
 // User Pages
 import UserLayout from './components/user/UserLayout';
-import UserDashboard from './components/user/UserDashboard';
 import UserProfile from './components/user/UserProfile';
 import UserRoom from './components/user/UserRoom';
 import UserContract from './components/user/UserContract';
 import UserInvoices from './components/user/UserInvoices';
+import UserRequests from './components/user/UserRequests';
+import ForceChangePassword from './components/user/ForceChangePassword';
 
 // Protected Route Component
 function ProtectedRoute({ children, requiredRole }) {
@@ -63,17 +61,30 @@ function ProtectedRoute({ children, requiredRole }) {
 // App Routes Component
 function AppRoutes() {
   const { user, logout } = useAuth();
+  const [mustChangePassword, setMustChangePassword] = useState(user?.mustChangePassword || false);
+
+  // Cập nhật mustChangePassword khi user thay đổi
+  useEffect(() => {
+    setMustChangePassword(user?.mustChangePassword || false);
+  }, [user]);
+
+  // Nếu user cần đổi mật khẩu, hiện trang đổi mật khẩu bắt buộc
+  if (user && mustChangePassword) {
+    return (
+      <ForceChangePassword 
+        user={user} 
+        onPasswordChanged={() => setMustChangePassword(false)} 
+      />
+    );
+  }
 
   return (
     <Routes>
       {/* Public Routes with Layout */}
       <Route path="/" element={<PublicLayout />}>
-        <Route index element={<HomePage />} />
-        <Route path="phong-trong" element={<RoomsPage />} />
-        <Route path="bang-gia" element={<PricingPage />} />
-        <Route path="tien-ich" element={<AmenitiesPage />} />
-        <Route path="gioi-thieu" element={<AboutPage />} />
-        <Route path="lien-he" element={<ContactPage />} />
+        <Route index element={<ArticlePage />} />
+        <Route path="phong-tro" element={<RoomGalleryPage />} />
+        <Route path="about" element={<AboutPage />} />
       </Route>
       
       {/* Login Route */}
@@ -81,7 +92,7 @@ function AppRoutes() {
         path="/login" 
         element={
           user ? (
-            <Navigate to={user.role === 'admin' ? '/admin' : '/'} replace />
+            <Navigate to={user.role === 'admin' ? '/admin' : '/user'} replace />
           ) : (
             <LoginPage onLogin={() => {}} />
           )
@@ -95,8 +106,9 @@ function AppRoutes() {
           <ProtectedRoute requiredRole="admin">
             <AdminLayout user={user} onLogout={logout}>
               <Routes>
-                <Route index element={<AdminDashboard />} />
+                <Route index element={<Navigate to="/admin/phong" replace />} />
                 <Route path="nguoi-dung" element={<UserManagement />} />
+                <Route path="tai-khoan" element={<UserManagement />} />
                 <Route path="phong" element={<RoomManagement />} />
                 <Route path="nguoi-thue" element={<TenantManagement />} />
                 <Route path="hop-dong" element={<ContractManagement />} />
@@ -117,11 +129,12 @@ function AppRoutes() {
           <ProtectedRoute requiredRole="user">
             <UserLayout user={user} onLogout={logout}>
               <Routes>
-                <Route index element={<UserDashboard />} />
+                <Route index element={<UserRoom />} />
                 <Route path="profile" element={<UserProfile />} />
                 <Route path="phong" element={<UserRoom />} />
                 <Route path="hop-dong" element={<UserContract />} />
                 <Route path="hoa-don" element={<UserInvoices />} />
+                <Route path="yeu-cau" element={<UserRequests />} />
               </Routes>
             </UserLayout>
           </ProtectedRoute>

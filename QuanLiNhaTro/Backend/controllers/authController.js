@@ -77,11 +77,12 @@ export const login = async (req, res) => {
     res.json({
       success: true,
       data: {
-        id: user._id,
+        _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
         tenantId: user.tenantId?._id,
+        mustChangePassword: user.mustChangePassword || false,
         token: generateToken(user._id)
       }
     });
@@ -157,18 +158,22 @@ export const changePassword = async (req, res) => {
 
     const user = await User.findById(req.user.id).select('+password');
 
-    // Check current password
-    const isMatch = await user.matchPassword(currentPassword);
+    // Nếu phải đổi mật khẩu lần đầu (mustChangePassword = true), không cần kiểm tra currentPassword
+    if (!user.mustChangePassword) {
+      // Check current password
+      const isMatch = await user.matchPassword(currentPassword);
 
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Mật khẩu hiện tại không đúng'
-      });
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          message: 'Mật khẩu hiện tại không đúng'
+        });
+      }
     }
 
     // Update password
     user.password = newPassword;
+    user.mustChangePassword = false; // Đã đổi mật khẩu xong
     await user.save();
 
     res.json({

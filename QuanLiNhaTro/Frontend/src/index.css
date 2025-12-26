@@ -5543,3 +5543,16 @@ html {
 .animation-delay-4000 {
   animation-delay: 4s;
 }
+
+/* Signature Font Styles */
+.font-signature {
+  font-family: 'Dancing Script', 'Brush Script MT', 'Lucida Handwriting', cursive;
+  font-size: 24px;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+/* Canvas signature styles */
+canvas {
+  border-radius: 8px;
+}

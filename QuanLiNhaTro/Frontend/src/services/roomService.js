@@ -76,6 +76,41 @@ class RoomService {
       throw error;
     }
   }
+
+  /**
+   * Upload ảnh cho phòng
+   */
+  async uploadRoomImages(roomId, files) {
+    try {
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('images', files[i]);
+      }
+      
+      const response = await api.post(`/rooms/${roomId}/images`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Xóa ảnh của phòng
+   */
+  async deleteRoomImage(roomId, imageUrl) {
+    try {
+      const response = await api.delete(`/rooms/${roomId}/images`, {
+        data: { imageUrl }
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 export const roomService = new RoomService();

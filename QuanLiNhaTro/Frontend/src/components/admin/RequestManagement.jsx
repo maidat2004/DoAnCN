@@ -1,358 +1,481 @@
-import { useEffect, useState } from 'react';
-import { requestService, tenantService, roomService } from '../../services';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
+import { Textarea } from '../ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
+import { 
+  CheckCircle, 
+  XCircle, 
+  Clock, 
+  AlertCircle, 
+  User, 
+  Calendar,
+  FileText,
+  ArrowRight,
+  MessageSquare
+} from 'lucide-react';
+import { motion } from 'motion/react';
+import { requestService } from '../../services/requestService';
+import { toast } from 'sonner';
 
 export default function RequestManagement() {
   const [requests, setRequests] = useState([]);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [reviewNote, setReviewNote] = useState('');
+  const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [resolvingId, setResolvingId] = useState('');
-  const [tenants, setTenants] = useState([]);
-  const [rooms, setRooms] = useState([]);
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    type: 'repair',
-    priority: 'medium',
-    status: 'pending',
-    tenant: '',
-    room: '',
-  });
-
-  const loadRequests = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [data, tenantList, roomList] = await Promise.all([
-        requestService.getRequests(),
-        tenantService.getTenants(),
-        roomService.getRooms(),
-      ]);
-      setRequests(data);
-      setTenants(tenantList);
-      setRooms(roomList);
-    } catch (err) {
-      setError(err.message || 'Không tải được yêu cầu');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     loadRequests();
   }, []);
 
-  const resetForm = () => {
-    setEditing(null);
-    setFormData({
-      title: '',
-      description: '',
-      type: 'repair',
-      priority: 'medium',
-      status: 'pending',
-      tenant: tenants[0]?._id || '',
-      room: rooms[0]?._id || '',
-    });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const loadRequests = async () => {
     try {
-      if (editing) {
-        await requestService.updateRequest(editing._id, formData);
-      } else {
-        await requestService.createRequest(formData);
-      }
-      setShowForm(false);
-      resetForm();
-      await loadRequests();
-    } catch (err) {
-      alert(err.message || 'Lưu yêu cầu thất bại');
-    }
-  };
-
-  const handleResolve = async (id) => {
-    try {
-      setResolvingId(id);
-      await requestService.updateRequest(id, { status: 'resolved' });
-      await loadRequests();
-    } catch (err) {
-      alert(err.message || 'Cập nhật thất bại');
+      setLoading(true);
+      const data = await requestService.getRequests();
+      setRequests(data);
+    } catch (error) {
+      toast.error('Không thể tải danh sách yêu cầu');
+      console.error('Error loading requests:', error);
     } finally {
-      setResolvingId('');
+      setLoading(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Xóa yêu cầu này?')) return;
+  const handleApprove = async (requestId) => {
     try {
-      await requestService.deleteRequest(id);
+      console.log('Approving request:', requestId, 'with note:', reviewNote);
+      await requestService.updateRequestStatus(requestId, 'resolved', reviewNote);
+      toast.success('Yêu cầu đã được duyệt và xử lý');
+
+      // Update local state immediately for better UX
+      setRequests(prevRequests =>
+        prevRequests.map(req =>
+          req._id === requestId
+            ? { ...req, status: 'resolved', reviewNote, reviewDate: new Date().toISOString() }
+            : req
+        )
+      );
+
+      // Also update selectedRequest if it's the same
+      if (selectedRequest && selectedRequest._id === requestId) {
+        setSelectedRequest(prev => ({
+          ...prev,
+          status: 'resolved',
+          reviewNote,
+          reviewDate: new Date().toISOString()
+        }));
+      }
+
+      setSelectedRequest(null);
+      setReviewNote('');
       await loadRequests();
-    } catch (err) {
-      alert(err.message || 'Xóa thất bại');
+    } catch (error) {
+      toast.error('Không thể duyệt yêu cầu');
+      console.error('Error approving request:', error);
     }
   };
 
-  const startEdit = (r) => {
-    setEditing(r);
-    setFormData({
-      title: r.title || '',
-      description: r.description || '',
-      type: r.type || 'repair',
-      priority: r.priority || 'medium',
-      status: r.status || 'pending',
-      tenant: r.tenant?._id || r.tenant || '',
-      room: r.room?._id || r.room || '',
-    });
-    setShowForm(true);
+  const handleReject = async (requestId) => {
+    try {
+      console.log('Rejecting request:', requestId, 'with note:', reviewNote);
+      await requestService.updateRequestStatus(requestId, 'rejected', reviewNote);
+      toast.success('Yêu cầu đã bị từ chối');
+
+      // Update local state immediately for better UX
+      setRequests(prevRequests =>
+        prevRequests.map(req =>
+          req._id === requestId
+            ? { ...req, status: 'rejected', reviewNote, reviewDate: new Date().toISOString() }
+            : req
+        )
+      );
+
+      // Also update selectedRequest if it's the same
+      if (selectedRequest && selectedRequest._id === requestId) {
+        setSelectedRequest(prev => ({
+          ...prev,
+          status: 'rejected',
+          reviewNote,
+          reviewDate: new Date().toISOString()
+        }));
+      }
+
+      setSelectedRequest(null);
+      setReviewNote('');
+      await loadRequests();
+    } catch (error) {
+      toast.error('Không thể từ chối yêu cầu');
+      console.error('Error rejecting request:', error);
+    }
+  };
+
+  const filteredRequests = requests.filter(req => {
+    if (filter === 'all') return true;
+    return req.status === filter;
+  });
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'pending':
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300"><Clock className="w-3 h-3 mr-1" />Chờ duyệt</Badge>;
+      case 'in-progress':
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-300"><ArrowRight className="w-3 h-3 mr-1" />Đang xử lý</Badge>;
+      case 'resolved':
+        return <Badge className="bg-green-100 text-green-800 border-green-300"><CheckCircle className="w-3 h-3 mr-1" />Đã xử lý</Badge>;
+      case 'rejected':
+        return <Badge className="bg-red-100 text-red-800 border-red-300"><XCircle className="w-3 h-3 mr-1" />Từ chối</Badge>;
+      default:
+        return null;
+    }
+  };
+
+  const stats = {
+    total: requests.length,
+    pending: requests.filter(r => r.status === 'pending').length,
+    resolved: requests.filter(r => r.status === 'resolved').length,
+    rejected: requests.filter(r => r.status === 'rejected').length,
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-3xl font-bold text-gray-800">Quản lý Yêu cầu</h2>
-          <p className="text-gray-500 mt-1">Dữ liệu từ database qua requestService</p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl flex items-center justify-center shadow-xl">
+            <span className="text-3xl">📋</span>
+          </div>
+          <div>
+            <h1 className="text-3xl bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+              Quản Lý Yêu Cầu
+            </h1>
+            <p className="text-gray-600">Xử lý yêu cầu cập nhật thông tin từ sinh viên</p>
+          </div>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => { resetForm(); setShowForm(!showForm); }}
-            className="px-4 py-2 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 text-white rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5"
-          >
-            {showForm ? 'Đóng' : '+ Thêm yêu cầu'}
-          </button>
-          <button
-            onClick={loadRequests}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Làm mới
-          </button>
-        </div>
+        <Button
+          onClick={loadRequests}
+          variant="outline"
+          className="flex items-center gap-2"
+        >
+          <ArrowRight className="w-4 h-4" />
+          Làm mới
+        </Button>
       </div>
 
-      {showForm && (
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <h3 className="text-xl font-bold mb-4">{editing ? 'Cập nhật yêu cầu' : 'Thêm yêu cầu mới'}</h3>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Tiêu đề</label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Loại</label>
-              <select
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-              >
-                <option value="repair">Sửa chữa</option>
-                <option value="complaint">Phàn nàn</option>
-                <option value="service">Dịch vụ</option>
-                <option value="other">Khác</option>
-              </select>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-2">Mô tả</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                rows={3}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Ưu tiên</label>
-              <select
-                value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-              >
-                <option value="low">Thấp</option>
-                <option value="medium">Trung bình</option>
-                <option value="high">Cao</option>
-                <option value="urgent">Khẩn cấp</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Trạng thái</label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-              >
-                <option value="pending">Chờ xử lý</option>
-                <option value="in-progress">Đang xử lý</option>
-                <option value="resolved">Đã xử lý</option>
-                <option value="rejected">Từ chối</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Người thuê</label>
-              <select
-                value={formData.tenant}
-                onChange={(e) => setFormData({ ...formData, tenant: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                required
-              >
-                <option value="">Chọn người thuê</option>
-                {tenants.map((t) => (
-                  <option key={t._id} value={t._id}>{t.fullName}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Phòng</label>
-              <select
-                value={formData.room}
-                onChange={(e) => setFormData({ ...formData, room: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                required
-              >
-                <option value="">Chọn phòng</option>
-                {rooms.map((r) => (
-                  <option key={r._id} value={r._id}>Phòng {r.roomNumber}</option>
-                ))}
-              </select>
-            </div>
-            <div className="md:col-span-2 flex gap-3">
-              <button
-                type="submit"
-                className="px-5 py-2 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 transition"
-              >
-                Lưu
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowForm(false); resetForm(); }}
-                className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-              >
-                Hủy
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {error && <div className="mb-4 p-3 rounded bg-red-50 text-red-700 border border-red-200">{error}</div>}
-
-      {loading ? (
-        <div className="text-center py-16">Đang tải...</div>
-      ) : (
-        <>
-          <button
-            type="button"
-            onClick={() => { resetForm(); setShowForm(true); }}
-            className="w-full mb-4 text-left border-2 border-dashed border-blue-300 rounded-xl bg-white p-4 flex items-center justify-between hover:border-blue-500 hover:bg-blue-50 transition shadow-sm"
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <Card 
+            className={`cursor-pointer transition-all duration-200 border-2 ${
+              filter === 'all' ? 'border-blue-500 shadow-lg' : 'border-transparent hover:border-gray-300'
+            }`}
+            onClick={() => setFilter('all')}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-2xl">+</div>
-              <div>
-                <div className="text-lg font-semibold text-blue-700">Thêm yêu cầu mới</div>
-                <div className="text-sm text-gray-500">Tạo ticket sửa chữa / dịch vụ nhanh</div>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Tổng yêu cầu</p>
+                  <p className="text-2xl text-gray-900">{stats.total}</p>
+                </div>
               </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card 
+            className={`cursor-pointer transition-all duration-200 border-2 ${
+              filter === 'pending' ? 'border-yellow-500 shadow-lg' : 'border-transparent hover:border-gray-300'
+            }`}
+            onClick={() => setFilter('pending')}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Chờ duyệt</p>
+                  <p className="text-2xl text-gray-900">{stats.pending}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card 
+            className={`cursor-pointer transition-all duration-200 border-2 ${
+              filter === 'approved' ? 'border-green-500 shadow-lg' : 'border-transparent hover:border-gray-300'
+            }`}
+            onClick={() => setFilter('approved')}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Đã duyệt</p>
+                  <p className="text-2xl text-gray-900">{stats.approved}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <Card 
+            className={`cursor-pointer transition-all duration-200 border-2 ${
+              filter === 'rejected' ? 'border-red-500 shadow-lg' : 'border-transparent hover:border-gray-300'
+            }`}
+            onClick={() => setFilter('rejected')}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-rose-600 rounded-xl flex items-center justify-center">
+                  <XCircle className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Từ chối</p>
+                  <p className="text-2xl text-gray-900">{stats.rejected}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* Requests List */}
+      <Card className="border-0 shadow-xl">
+        <CardHeader>
+          <CardTitle>Danh Sách Yêu Cầu</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {filteredRequests.length === 0 ? (
+            <div className="py-12 text-center">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileText className="w-10 h-10 text-gray-400" />
+              </div>
+              <p className="text-gray-500">Không có yêu cầu nào</p>
             </div>
-            <span className="text-sm text-blue-600 font-semibold">Mở form</span>
-          </button>
+          ) : (
+            <div className="space-y-4">
+              {filteredRequests.map((request, index) => (
+                <motion.div
+                  key={request._id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="p-4 border border-gray-200 rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer"
+                  onClick={() => setSelectedRequest(request)}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                          <span className="text-white">{request.tenant?.fullName?.charAt(0) || 'N'}</span>
+                        </div>
+                        <div>
+                          <h3 className="text-gray-900">{request.tenant?.fullName || 'N/A'}</h3>
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Calendar className="w-4 h-4" />
+                            <span>{new Date(request.createdAt).toLocaleDateString('vi-VN')}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="ml-13">
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <Badge variant="outline" className="text-xs">
+                            {request.type || 'Yêu cầu'}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {request.priority || 'Bình thường'}
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-semibold text-gray-900 mb-1">{request.title}</p>
+                        {request.description && (
+                          <p className="text-sm text-gray-600 line-clamp-1">
+                            <MessageSquare className="w-3 h-3 inline mr-1" />
+                            {request.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {getStatusBadge(request.status)}
+                      <ArrowRight className="w-5 h-5 text-gray-400" />
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Tiêu đề</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Người thuê</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Phòng</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Loại</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Ưu tiên</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Trạng thái</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {requests.map((r) => (
-                  <tr key={r._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-gray-900">{r.title}</div>
-                      <div className="text-xs text-gray-500">{r.description}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{r.tenant?.fullName || 'N/A'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{r.room?.roomNumber || 'N/A'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{r.type}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        r.priority === 'urgent'
-                          ? 'bg-red-100 text-red-700'
-                          : r.priority === 'high'
-                          ? 'bg-orange-100 text-orange-700'
-                          : r.priority === 'medium'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}>
-                        {r.priority}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        r.status === 'resolved'
-                          ? 'bg-green-100 text-green-700'
-                          : r.status === 'in-progress'
-                          ? 'bg-blue-100 text-blue-700'
-                          : r.status === 'rejected'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {r.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-sm space-x-2">
-                      <button
-                        onClick={() => startEdit(r)}
-                        className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100"
+      {/* Request Detail Dialog */}
+      <Dialog open={selectedRequest !== null} onOpenChange={(open) => !open && setSelectedRequest(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          {selectedRequest && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-2xl flex items-center gap-2">
+                  <span className="text-2xl">👤</span>
+                  Chi Tiết Yêu Cầu
+                </DialogTitle>
+                <DialogDescription>
+                  Xem xét và xử lý yêu cầu cập nhật thông tin
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                {/* User Info */}
+                <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                      <span className="text-white text-lg">{selectedRequest.tenant?.fullName?.charAt(0) || 'N'}</span>
+                    </div>
+                    <div>
+                      <h3 className="text-gray-900">{selectedRequest.tenant?.fullName || 'N/A'}</h3>
+                      <p className="text-sm text-gray-600">
+                        Ngày gửi: {new Date(selectedRequest.createdAt).toLocaleDateString('vi-VN')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Trạng thái:</span>
+                    {getStatusBadge(selectedRequest.status)}
+                  </div>
+                </div>
+
+                {/* Request Info */}
+                <div>
+                  <h4 className="text-gray-900 mb-3 flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-orange-500" />
+                    Thông Tin Yêu Cầu
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="text-sm text-gray-600 mb-2">Tiêu đề:</p>
+                      <p className="text-gray-900 font-semibold">{selectedRequest.title}</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="text-sm text-gray-600 mb-2">Loại yêu cầu:</p>
+                      <Badge variant="outline">{selectedRequest.type || 'Yêu cầu'}</Badge>
+                      <Badge variant="outline" className="ml-2">{selectedRequest.priority || 'Bình thường'}</Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Description */}
+                {selectedRequest.description && (
+                  <div>
+                    <h4 className="text-gray-900 mb-2 flex items-center gap-2">
+                      <MessageSquare className="w-5 h-5 text-blue-500" />
+                      Mô tả chi tiết
+                    </h4>
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-gray-700 whitespace-pre-wrap">{selectedRequest.description}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Review section */}
+                {selectedRequest.status === 'pending' ? (
+                  <div>
+                    <h4 className="text-gray-900 mb-2">Ghi Chú Phản Hồi (tùy chọn)</h4>
+                    <Textarea
+                      value={reviewNote}
+                      onChange={(e) => setReviewNote(e.target.value)}
+                      placeholder="Nhập ghi chú phản hồi cho sinh viên..."
+                      rows={3}
+                      className="mb-4"
+                    />
+                    <div className="flex gap-3 justify-end">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedRequest(null);
+                          setReviewNote('');
+                        }}
                       >
-                        Sửa
-                      </button>
-                      <button
-                        onClick={() => handleDelete(r._id)}
-                        className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"
+                        Đóng
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="text-red-600 border-red-600 hover:bg-red-50"
+                        onClick={() => handleReject(selectedRequest._id)}
                       >
-                        Xóa
-                      </button>
-                      {r.status !== 'resolved' && (
-                        <button
-                          onClick={() => handleResolve(r._id)}
-                          disabled={resolvingId === r._id}
-                          className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 disabled:opacity-50"
-                        >
-                          {resolvingId === r._id ? 'Đang xử lý...' : 'Đánh dấu đã xử lý'}
-                        </button>
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Từ Chối
+                      </Button>
+                      <Button
+                        className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                        onClick={() => handleApprove(selectedRequest._id)}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Phê Duyệt
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <h4 className="text-gray-900 mb-2">Kết Quả Xử Lý</h4>
+                    <div className={`p-4 rounded-lg border ${
+                      selectedRequest.status === 'approved' 
+                        ? 'bg-green-50 border-green-200' 
+                        : 'bg-red-50 border-red-200'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        {selectedRequest.status === 'approved' ? (
+                          <>
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                            <span className="text-green-800">Đã phê duyệt</span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-5 h-5 text-red-600" />
+                            <span className="text-red-800">Đã từ chối</span>
+                          </>
+                        )}
+                      </div>
+                      {selectedRequest.reviewDate && (
+                        <p className="text-sm text-gray-600 mb-2">
+                          Ngày xử lý: {new Date(selectedRequest.reviewDate).toLocaleDateString('vi-VN')}
+                        </p>
                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {requests.length === 0 && <div className="p-6 text-center text-gray-500">Chưa có yêu cầu</div>}
-          </div>
-        </>
-      )}
-
-      {/* Floating quick add button */}
-      <button
-        type="button"
-        onClick={() => { resetForm(); setShowForm(true); }}
-        className="fixed bottom-6 right-6 px-4 py-3 rounded-full bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 text-white shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 focus:outline-none"
-      >
-        + Thêm yêu cầu
-      </button>
+                      {selectedRequest.reviewNote && (
+                        <p className="text-gray-700">{selectedRequest.reviewNote}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

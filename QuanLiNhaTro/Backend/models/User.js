@@ -29,6 +29,40 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  dateOfBirth: {
+    type: Date
+  },
+  hometown: {
+    type: String,
+    trim: true
+  },
+  currentAddress: {
+    type: String,
+    trim: true
+  },
+  idCard: {
+    type: String,
+    trim: true
+  },
+  occupation: {
+    type: String,
+    default: 'Người thuê',
+    trim: true
+  },
+  emergencyContact: {
+    name: {
+      type: String,
+      trim: true
+    },
+    phone: {
+      type: String,
+      trim: true
+    },
+    relationship: {
+      type: String,
+      trim: true
+    }
+  },
   avatar: {
     type: String,
     default: ''
@@ -41,6 +75,10 @@ const userSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  mustChangePassword: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

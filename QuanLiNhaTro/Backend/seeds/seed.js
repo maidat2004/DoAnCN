@@ -182,6 +182,12 @@ const seedData = async () => {
 
     console.log('✅ Đã tạo Tenant mẫu');
 
+    // Update user's tenantId
+    user.tenantId = tenant._id;
+    await user.save();
+
+    console.log('🔄 Đã cập nhật tenantId cho user');
+
     // Update room occupancy
     await Room.findByIdAndUpdate(rooms[3]._id, {
       status: 'occupied',

@@ -157,3 +157,87 @@ export const getAvailableRooms = async (req, res) => {
     });
   }
 };
+
+// @desc    Upload room images
+// @route   POST /api/rooms/:id/images
+// @access  Private/Admin
+export const uploadRoomImages = async (req, res) => {
+  try {
+    const room = await Room.findById(req.params.id);
+
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy phòng'
+      });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng chọn ít nhất 1 ảnh'
+      });
+    }
+
+    if (req.files.length > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Chỉ được upload tối đa 5 ảnh'
+      });
+    }
+
+    // Get file paths
+    const imagePaths = req.files.map(file => `/uploads/rooms/${file.filename}`);
+    
+    // Add new images to existing images
+    room.images = [...(room.images || []), ...imagePaths];
+    
+    // Keep only last 5 images if more than 5
+    if (room.images.length > 5) {
+      room.images = room.images.slice(-5);
+    }
+
+    await room.save();
+
+    res.json({
+      success: true,
+      data: room
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Delete room image
+// @route   DELETE /api/rooms/:id/images
+// @access  Private/Admin
+export const deleteRoomImage = async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    const room = await Room.findById(req.params.id);
+
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy phòng'
+      });
+    }
+
+    // Remove image from array
+    room.images = room.images.filter(img => img !== imageUrl);
+    await room.save();
+
+    res.json({
+      success: true,
+      data: room
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
